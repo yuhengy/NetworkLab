@@ -10,7 +10,6 @@ import time
 import sys
 import os
 
-sys.path.append('lib')
 from getName import *
 
 class MyTopo(Topo):
@@ -29,7 +28,7 @@ def test(bw=10, delay='10ms', block='1M', trial = 5, skipExistedLog = False):
   net.start()
   h1 = net.get('h1')
   h2 = net.get('h2')
-  h1.cmd('mkdir -p' + dirName)
+  h1.cmd('mkdir -p ' + dirName)
   h2.cmd('python -m SimpleHTTPServer 80 &')
   h2.cmd('dd if=/dev/zero of=' + sendName +' bs='+ block +' count=1')
   time.sleep(1)

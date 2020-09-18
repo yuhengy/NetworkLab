@@ -1,6 +1,6 @@
 
 
-TEST = 1
+TEST = 4
 
 
 if TEST == 1:
@@ -32,6 +32,6 @@ elif TEST == 4:
     'bw_all' : [1, 2, 5, 10, 20, 50, 100, 500, 1000]
   }
 
-summayResultFile = './summayResult.json'
+summayResultFile = './src/summayResult.json'
 skipExistedLog = False
 jobs = 4

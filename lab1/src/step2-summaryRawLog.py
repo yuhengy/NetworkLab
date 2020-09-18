@@ -6,7 +6,7 @@ import sys
 import numpy as np
 import json
 
-sys.path.append('lib')
+sys.path.append('src/lib')
 from getName import *
 from config import *
 

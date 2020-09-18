@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-sys.path.append('lib')
+sys.path.append('src/lib')
 from config import *
 
 
@@ -40,7 +40,7 @@ if __name__ == "__main__":
       ax.set_ylabel("Relative FCT Improvement")
     ax.legend()
 
-  plt.savefig("../plot/Result" + ".pdf", bbox_inches="tight")
+  plt.savefig("plot/Result" + ".pdf", bbox_inches="tight")
 
 
 

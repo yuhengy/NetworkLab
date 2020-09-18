@@ -4,7 +4,7 @@ import os
 import sys
 from multiprocessing import Pool
 
-sys.path.append('lib')
+sys.path.append('src/lib')
 from config import *
 
 def worker(shellCmd):
@@ -17,7 +17,7 @@ def generateAllRawLog():
     for bw in config['bw_all']:
       for block in config['block_all']:
         ## Note: this is python2
-        shellCmd = "sudo python lib/getRawLog.py " + str(bw) + ' ' + delay + ' ' + block + ' ' + str(config['trial']) + ' ' + str(skipExistedLog)
+        shellCmd = "sudo python src/lib/getRawLog.py " + str(bw) + ' ' + delay + ' ' + block + ' ' + str(config['trial']) + ' ' + str(skipExistedLog)
         p.apply_async(worker, args=(shellCmd,))
   p.close()
   p.join()

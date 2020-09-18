@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 def getDirName(bw, delay, block):
-  return '../data/rawData-delay' + delay
+  return 'data/rawData-delay' + delay
 
 def getFileName(bw, delay, block):
   return 'block' + block + '-bw%d'%bw + '.dat'
