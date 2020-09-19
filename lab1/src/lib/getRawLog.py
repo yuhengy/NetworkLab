@@ -13,16 +13,25 @@ import os
 from getName import *
 
 class MyTopo(Topo):
-    def build(self, bw=10, delay='10ms'):
+    def build(self, bw=10, delay='10ms', cpu=-1, queueSize=-1):
+
+      if cpu != -1:
+        h1 = self.addHost('h1', cpu=cpu)
+        h2 = self.addHost('h2', cpu=cpu)
+      else:
         h1 = self.addHost('h1')
         h2 = self.addHost('h2')
+
+      if queueSize != -1:
+        self.addLink(h1, h2, bw=bw, delay=delay, max_queue_size=queueSize)
+      else:
         self.addLink(h1, h2, bw=bw, delay=delay)
 
-def test(bw=10, delay='10ms', block='1M', trial = 5, skipExistedLog = False):
+def test(bw=10, delay='10ms', block='1M', trial = 5, skipExistedLog = False, cpu=-1, queueSize=-1):
   dirName = getDirName(bw, delay, block)
   sendName = dirName + '/send-' + getFileName(bw, delay, block)
   receiveName = dirName + '/receive-' + getFileName(bw, delay, block)
-  topo = MyTopo(bw=bw, delay=delay)
+  topo = MyTopo(bw=bw, delay=delay, cpu=cpu, queueSize=cpu)
   net = Mininet(topo = topo, switch = OVSBridge, link = TCLink, controller=None)
 
   net.start()
@@ -48,14 +57,16 @@ def test(bw=10, delay='10ms', block='1M', trial = 5, skipExistedLog = False):
 
 
 if __name__ == "__main__":
-  if len(sys.argv) <= 4:
-    print("4 arguments needed!")
+  if len(sys.argv) <= 7:
+    print("7 arguments needed!")
     exit() 
   bw = int(sys.argv[1])
   delay = sys.argv[2]
   block = sys.argv[3]
   trail = int(sys.argv[4])
   skipExistedLog = sys.argv[5] == 'True'
+  cpu = float(sys.argv[6])
+  queueSize = int(sys.argv[7])
 
-  test(bw, delay, block, trail, skipExistedLog)
+  test(bw, delay, block, trail, skipExistedLog, cpu, queueSize)
 

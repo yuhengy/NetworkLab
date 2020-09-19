@@ -1,3 +1,4 @@
 slides
 data
 /.vagrant
+__pycache__

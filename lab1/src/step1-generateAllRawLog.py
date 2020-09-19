@@ -17,7 +17,7 @@ def generateAllRawLog():
     for bw in config['bw_all']:
       for block in config['block_all']:
         ## Note: this is python2
-        shellCmd = "sudo python src/lib/getRawLog.py " + str(bw) + ' ' + delay + ' ' + block + ' ' + str(config['trial']) + ' ' + str(skipExistedLog)
+        shellCmd = "sudo python src/lib/getRawLog.py " + str(bw) + ' ' + delay + ' ' + block + ' ' + str(config['trial']) + ' ' + str(skipExistedLog) + ' ' + str(config['cpu']) + ' ' + str(config['queueSize'])
         p.apply_async(worker, args=(shellCmd,))
   p.close()
   p.join()
