@@ -14,10 +14,11 @@ DEBIAN_FRONTEND=noninteractive apt-fast -y install wireshark
 apt-fast -y install mininet xterm python3-pip
 apt-fast -y install xauth # For x11
 pip3 install pysocks
+#pip3 install numpy matplotlib --proxy='http://192.168.3.2:7890'
 pip3 install numpy matplotlib --proxy='socks5://192.168.3.2:7890'
 
 
-echo "export https_proxy=http://192.168.3.2:7890 http_proxy=http://192.168.3.2:7890 all_proxy=socks5://192.168.3.2:7890" >> ~/.bashrc
+echo "export https_proxy=http://192.168.3.2:7890 http_proxy=http://192.168.3.2:7890 all_proxy=socks5://192.168.3.2:7890" >> /home/vagrant/.bashrc
 
 ## one sudo will last until log out
 sudo sed -i 's/env_reset/env_reset,timestamp_timeout=-1/g' /etc/sudoers
