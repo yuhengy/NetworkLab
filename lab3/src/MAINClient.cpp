@@ -25,7 +25,12 @@ int main(int argc, char *argv[])
   printf("-------But, I only use-------\n%s\n========================\n", msgResp.getMsgString().c_str());
 
   // STEP4 save text
-  msgResp.writeBodyToFIle(argv[2]);
+  if (msgResp.getSuccess()) {
+    msgResp.writeBodyToFIle(argv[2]);
+  }
+  else {
+    printf("*****404 File not found*******\n");
+  }
 
   return 0;
 }

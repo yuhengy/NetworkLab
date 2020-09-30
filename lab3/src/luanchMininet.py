@@ -4,6 +4,8 @@ from mininet.link import TCLink
 from mininet.topo import Topo
 from mininet.node import OVSBridge
 
+import time
+
 class MyTopo(Topo):
     def build(self):
         h1 = self.addHost('h1')
@@ -21,21 +23,31 @@ h2 = net.get('h2')
 h1.cmd('mkdir -p result')
 
 # TEST1 myClient to myServer
-h1.cmd('./build/server > result/test1_myServer_log.log 2>&1')
+h1.cmd('./build/server > result/test1_myServer_log.log 2>&1 &')
 time.sleep(1)
 h2.cmd('./build/client /test_send.txt result/test1_receive_myClientFromMyServer.txt > result/test1_myClient_log.log 2>&1')
 time.sleep(1)
+h1.cmd('./build/server >> result/test1_myServer_log.log 2>&1 &')
+time.sleep(1)
+h2.cmd('./build/client /test_notexist_send.txt result/test1_notexist_receive_myClientFromMyServer.txt >> result/test1_myClient_log.log 2>&1')
+time.sleep(1)
 
 # TEST2 wgetClient to myServer
-h1.cmd('./build/server > result/test2_myServer_log.log 2>&1')
+h1.cmd('./build/server > result/test2_myServer_log.log 2>&1 &')
 time.sleep(1)
-h2.cmd('wget http://10.0.0.1/test_send.txt result/test2_receive_wgetFromMyServer.txt > result/test2_wgetClient_log.log 2>&1')
+h2.cmd('wget http://10.0.0.1/test_send.txt -O result/test2_receive_wgetFromMyServer.txt > result/test2_wgetClient_log.log 2>&1')
+time.sleep(1)
+h1.cmd('./build/server >> result/test2_myServer_log.log 2>&1 &')
+time.sleep(1)
+h2.cmd('wget http://10.0.0.1/test_notexist_send.txt -O result/test2_notexist_receive_wgetFromMyServer.txt >> result/test2_wgetClient_log.log 2>&1')
 time.sleep(1)
 
 # TEST3 myClient to pythonServer
-h1.cmd('python -m SimpleHTTPServer 80 > result/test3_pythonServer_log.log 2>&1')
+h1.cmd('python -m SimpleHTTPServer 80 > result/test3_pythonServer_log.log 2>&1 &')
 time.sleep(1)
 h2.cmd('./build/client /test_send.txt result/test3_receive_myClientFromPythonServer.txt > result/test3_myClient_log.log 2>&1')
+time.sleep(1)
+h2.cmd('./build/client /test_notexist_send.txt result/test3_notexist_receive_myClientFromPythonServer.txt >> result/test3_myClient_log.log 2>&1')
 time.sleep(1)
 
 

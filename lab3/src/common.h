@@ -5,6 +5,7 @@
 #define RESPMSG_LEN 1000
 
 #include <stdio.h>
+#include <string.h>
 #include <iostream>
 #include <sstream>
 #include <fstream>

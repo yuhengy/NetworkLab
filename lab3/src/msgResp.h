@@ -11,6 +11,7 @@ public:
   void readBodyFromFile(string fileName);
   void writeBodyToFIle(string fileName);
   string getMsgString();
+  bool getSuccess() { return statusCode.compare("404")!=0; }
 
 private:
   string HTTPVersion;

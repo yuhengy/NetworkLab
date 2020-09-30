@@ -8,6 +8,10 @@
 rm -rf result
 make clean
 make all
-python src/luanchMininet.py
+sudo python src/luanchMininet.py
+## The results of these three tests are generated in ./results
+#  TEST1 myClient to myServer
+#  TEST2 wgetClient to myServer
+#  TEST3 myClient to pythonServer
 
 # "

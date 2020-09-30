@@ -30,6 +30,7 @@ void socketClient_c::mySend(string msgString)
 string socketClient_c::myReceive()
 {
   char receiveMsg[RESPMSG_LEN];
+  memset(receiveMsg, 0, sizeof(receiveMsg));
   int len = recv(sock, receiveMsg, RESPMSG_LEN, 0);
   if (len < 0) {
     printf("recv failed\n");
