@@ -11,6 +11,10 @@
 #include <fstream>
 #include <string>
 #include <vector>
+
+#include <pthread.h>
+#include <sys/wait.h>
+#include <ctime>
 using namespace std;
 
 vector<string> split(string s, string delimiter);

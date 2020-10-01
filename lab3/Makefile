@@ -15,4 +15,4 @@ build/client: $(CLIENTCPPFile) $(HFile)
 	g++ $(CLIENTCPPFile) -o $@
 build/server: $(SERVERCPPFile) $(HFile)
 	mkdir -p build
-	g++ $(SERVERCPPFile) -o $@
+	g++ $(SERVERCPPFile) -o $@ -lpthread

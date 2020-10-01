@@ -3,7 +3,7 @@
 socketServer_c::socketServer_c()
 {
   // create socket
-  int sock = socket(AF_INET, SOCK_STREAM, 0);
+  sock = socket(AF_INET, SOCK_STREAM, 0);
   if (sock < 0) {
     printf("create socket failed\n");
   }
@@ -24,6 +24,13 @@ socketServer_c::socketServer_c()
   // listen
   listen(sock, 3);
   printf("waiting for incoming connections...\n");
+}
+
+long socketServer_c::waitNextClient()
+{
+  // connect to server
+  struct sockaddr_in client;
+  long cs;
 
   // accept connection from an incoming client
   int c = sizeof(struct sockaddr_in);
@@ -31,17 +38,5 @@ socketServer_c::socketServer_c()
       perror("accept failed\n");
   }
   printf("connection accepted\n");
-}
-
-string socketServer_c::myReceive(int* len)
-{
-  char receiveMsg[RESPMSG_LEN];
-  memset(receiveMsg, 0, sizeof(receiveMsg));
-  *len = recv(cs, receiveMsg, RESPMSG_LEN, 0);
-  return string(receiveMsg);
-}
-
-void socketServer_c::mySend(string msgString)
-{
-  write(cs, msgString.c_str(), msgString.size());
+  return cs;
 }

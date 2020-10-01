@@ -5,13 +5,12 @@
 #include "config.h"
 #include "common.h"
 
-class socketServer_c {
+class socketServerSubhandler_c {
 public:
-  socketServer_c();
-  long waitNextClient();
+  socketServerSubhandler_c(long cs) : cs(cs) {};
   string myReceive(int* len);
   void mySend(string msgString);
 
 private:
-  int sock;
+  long cs;
 };

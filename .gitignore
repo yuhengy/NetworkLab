@@ -3,3 +3,5 @@ data
 /.vagrant
 __pycache__
 *.pyc
+result
+build

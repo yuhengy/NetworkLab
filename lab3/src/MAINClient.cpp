@@ -31,6 +31,12 @@ int main(int argc, char *argv[])
   else {
     printf("*****404 File not found*******\n");
   }
+  
+  // THIS is used to check requests are served in parallel
+  time_t now = time(0);
+  printf("************************************************\n");
+  printf("********This request finish at %ld********\n", now % 1000);
+  printf("************************************************\n");
 
   return 0;
 }
