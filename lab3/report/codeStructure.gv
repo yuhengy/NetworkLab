@@ -1,0 +1,15 @@
+digraph G {
+  "vagrant up" -> "run_all.sh";
+  "make all" -> "run_all.sh";
+  "launchMininet.py" -> "run_all.sh";
+
+  "msgReq.cpp" -> "MAINClient.cpp", "MAINServer.cpp";
+  "msgResp.cpp" -> "MAINClient.cpp", "MAINServer.cpp";
+  "socketClient.cpp" -> "MAINClient.cpp";
+  "socketServer.cpp" -> "MAINServer.cpp";
+  "socketServerSubhandler" -> "MAINServer.cpp";
+  "MAINClient.cpp" -> "make all";
+  "MAINServer.cpp" -> "make all";
+}
+
+#Usage: dot -Tpng codeStructure.gv -o dependChain-codeStructure.png

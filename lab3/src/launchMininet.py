@@ -69,7 +69,9 @@ h1.cmd('stdbuf -oL -eL python -m SimpleHTTPServer 80 > result/test3_pythonServer
 time.sleep(1)
 # TEST3a continuous request
 h2.cmd('./build/client /test_send.txt result/test3a-1_receive_myClientFromMyServer.txt > result/test3a-1_myClient_log.log 2>&1')
+time.sleep(5)
 h2.cmd('./build/client /test_send.txt result/test3a-2_receive_myClientFromMyServer.txt > result/test3a-2_myClient_log.log 2>&1')
+time.sleep(5)
 h2.cmd('./build/client /test_send.txt result/test3a-3_receive_myClientFromMyServer.txt > result/test3a-3_myClient_log.log 2>&1')
 time.sleep(1)
 # TEST3c File not found

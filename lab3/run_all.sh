@@ -3,12 +3,12 @@
 #  Just use this instruction
 #  Note, also uncomment the `"` in the last line
 
-# vagrant up && vagrant ssh -- "
+ vagrant up && vagrant ssh -- " cd /NetworkLab/lab3
 
 rm -rf result
 make clean
 make all
-sudo python src/luanchMininet.py
+sudo python src/launchMininet.py
 ## The results of these three tests are generated in ./results
 #  TEST1 myClient to myServer
 #      a. continuous request
@@ -22,4 +22,4 @@ sudo python src/luanchMininet.py
 #      a. continuous request
 #      c. File not found
 
-# "
+ "
