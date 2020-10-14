@@ -41,12 +41,15 @@ class BroadcastTopo(Topo):
     def build(self):
         h1 = self.addHost('h1')
         h2 = self.addHost('h2')
-        h3 = self.addHost('h3')
         b1 = self.addHost('b1')
+        b2 = self.addHost('b2')
+        b3 = self.addHost('b3')
 
-        self.addLink(h1, b1, bw=20)
-        self.addLink(h2, b1, bw=10)
-        self.addLink(h3, b1, bw=10)
+        self.addLink(h1, b1)
+        self.addLink(h2, b2)
+        self.addLink(b1, b2)
+        self.addLink(b2, b3)
+        self.addLink(b3, b1)
 
 if __name__ == '__main__':
     check_scripts()
@@ -54,37 +57,29 @@ if __name__ == '__main__':
     topo = BroadcastTopo()
     net = Mininet(topo = topo, link = TCLink, controller = None) 
 
-    h1, h2, h3, b1 = net.get('h1', 'h2', 'h3', 'b1')
+    h1, h2, b1, b2, b3 = net.get('h1', 'h2', 'b1', 'b2', 'b3')
     h1.cmd('ifconfig h1-eth0 10.0.0.1/8')
     h2.cmd('ifconfig h2-eth0 10.0.0.2/8')
-    h3.cmd('ifconfig h3-eth0 10.0.0.3/8')
     clearIP(b1)
+    clearIP(b2)
+    clearIP(b3)
 
-    for h in [ h1, h2, h3, b1 ]:
+    for h in [ h1, h2, b1, b2, b3 ]:
         h.cmd('./scripts/disable_offloading.sh')
         h.cmd('./scripts/disable_ipv6.sh')
 
     net.start()
 
-    ## STEP1 test ping success
-    print("STEP1 test ping success")
-    b1.cmd('stdbuf -oL -eL build/hub > result/STEP12-hubOutput.log 2>&1 &')
+    ## STEP3 test hub loop
+    print("STEP3 test hub loop")
+    h1.cmd('tshark -c 10000 -w /wiresharOutput.pcapng > result/STEP3-tsharkOutput.log 2>&1 &')
     time.sleep(1)
-    h1.cmd('ping -c 5 10.0.0.2 > result/STEP1-pingSuccess.log 2>&1')
-
-    ## STEP2 perf performance
-    print("STEP2 perf performance")
-    h2.cmd('stdbuf -oL -eL iperf -s > result/STEP2-a-H2Server.log 2>&1 &')
-    h3.cmd('stdbuf -oL -eL iperf -s > result/STEP2-a-H3Server.log 2>&1 &')
+    b1.cmd('stdbuf -oL -eL build/hub > result/STEP3-hub1Output.log 2>&1 &')
+    b2.cmd('stdbuf -oL -eL build/hub > result/STEP3-hub2Output.log 2>&1 &')
+    b3.cmd('stdbuf -oL -eL build/hub > result/STEP3-hub3Output.log 2>&1 &')
     time.sleep(1)
-    h1.cmd('iperf -n 10M -c 10.0.0.2 > result/STEP2-a-H1ClientToH2.log 2>&1 &')
-    h1.cmd('iperf -n 10M -c 10.0.0.3 > result/STEP2-a-H1ClientToH3.log 2>&1')
-    time.sleep(10)
-
-    h1.cmd('stdbuf -oL -eL iperf -s > result/STEP2-b-H1Server.log 2>&1 &')
-    time.sleep(1)
-    h2.cmd('iperf -n 10M -c 10.0.0.1 > result/STEP2-b-H2ClientToH1.log 2>&1 &')
-    h3.cmd('iperf -n 10M -c 10.0.0.1 > result/STEP2-b-H3ClientToH1.log 2>&1')
-    time.sleep(10)
+    h2.cmd('ping -c 1 10.0.0.1 > result/STEP3-H2pingH1.log 2>&1')
+    time.sleep(5)
+    h1.cmd('mv /wiresharOutput.pcapng result/')
 
     net.stop()
