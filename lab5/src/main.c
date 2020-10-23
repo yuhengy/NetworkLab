@@ -48,7 +48,10 @@ void handle_packet(iface_info_t *iface, char *packet, int len)
 	} else {
 		iface_send_packet(outIface, packet, len);
 	}
-	insert_mac_port(eh->ether_shost, iface);
+	iface_info_t* inIface = lookup_port(eh->ether_shost);
+	if (!inIface) {
+		insert_mac_port(eh->ether_shost, iface);
+	}
 }
 
 // open the interface to read all the necessary information
