@@ -1,5 +1,6 @@
 #include "mac.h"
 #include "log.h"
+#include "utils.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -38,15 +39,35 @@ void destory_mac_port_table()
 iface_info_t *lookup_port(u8 mac[ETH_ALEN])
 {
 	// TODO: implement the lookup process here
-	fprintf(stdout, "TODO: implement the lookup process here.\n");
-	return NULL;
+	mac_port_entry_t *iterator;
+	iface_info_t* found_iface = NULL;
+	u8 key = hash8((char*)mac, ETH_ALEN);
+	pthread_mutex_lock(&mac_port_map.lock);
+	list_for_each_entry(iterator, &mac_port_map.hash_table[key], list) {
+		if (memcmp(mac, iterator->mac, ETH_ALEN) == 0) {
+			found_iface = iterator->iface;
+			iterator->visited = time(NULL);
+		}
+	}
+	pthread_mutex_unlock(&mac_port_map.lock);
+	return found_iface;
 }
 
 // insert the mac -> iface mapping into mac_port table
 void insert_mac_port(u8 mac[ETH_ALEN], iface_info_t *iface)
 {
 	// TODO: implement the insertion process here
-	fprintf(stdout, "TODO: implement the insertion process here.\n");
+	u8 key = hash8((char*)mac, ETH_ALEN);
+
+	mac_port_entry_t *new = safe_malloc(sizeof(mac_port_entry_t));
+	bzero(new, sizeof(mac_port_entry_t));
+	memcpy(new->mac, mac, ETH_ALEN);
+	new->iface = iface;
+	new->visited = time(NULL);
+
+	pthread_mutex_lock(&mac_port_map.lock);
+	list_add_tail(&new->list, &mac_port_map.hash_table[key]);
+	pthread_mutex_unlock(&mac_port_map.lock);
 }
 
 // dumping mac_port table
@@ -72,7 +93,18 @@ void dump_mac_port_table()
 int sweep_aged_mac_port_entry()
 {
 	// TODO: implement the sweeping process here
-	fprintf(stdout, "TODO: implement the sweeping process here.\n");
+	mac_port_entry_t *iterator;
+	time_t now = time(NULL);
+	pthread_mutex_lock(&mac_port_map.lock);
+	for (int i = 0; i < HASH_8BITS; i++) {
+		list_for_each_entry(iterator, &mac_port_map.hash_table[i], list) {
+			if ((int)(now - iterator->visited) > MAC_PORT_TIMEOUT) {
+				list_delete_entry(&iterator->list);
+				free(iterator);
+			}
+		}
+	}
+	pthread_mutex_unlock(&mac_port_map.lock);
 
 	return 0;
 }

@@ -34,5 +34,10 @@ void iface_send_packet(iface_info_t *iface, char *packet, int len)
 void broadcast_packet(iface_info_t *iface, char *packet, int len)
 {
 	// TODO: implement the broadcast process here
-	fprintf(stdout, "TODO: implement the broadcast process here.\n");
+	iface_info_t* iterator;
+	list_for_each_entry(iterator, &instance->iface_list, list) {
+		if (iterator != iface) {
+			iface_send_packet(iterator, packet, len);
+		}
+	}
 }

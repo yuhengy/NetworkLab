@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 import glob
 
 from mininet.topo import Topo
@@ -64,8 +65,23 @@ if __name__ == '__main__':
         h.cmd('./scripts/disable_ipv6.sh')
 
     net.start()
-    # s1.cmd('./switch-reference &')
-    # h2.cmd('iperf -s &')
-    # h3.cmd('iperf -s &')
-    CLI(net)
+    s1.cmd('stdbuf -oL -eL src/switch > result/switchOutput.log 2>&1 &')
+    time.sleep(1)
+    h1.cmd('ping -c 5 10.0.0.2 > result/STEP1-pingSuccess.log 2>&1')
+
+    ## STEP2 perf performance
+    print("STEP2 perf performance")
+    h2.cmd('stdbuf -oL -eL iperf -s > result/STEP2-a-H2Server.log 2>&1 &')
+    h3.cmd('stdbuf -oL -eL iperf -s > result/STEP2-a-H3Server.log 2>&1 &')
+    time.sleep(1)
+    h1.cmd('iperf -n 10M -c 10.0.0.2 > result/STEP2-a-H1ClientToH2.log 2>&1 &')
+    h1.cmd('iperf -n 10M -c 10.0.0.3 > result/STEP2-a-H1ClientToH3.log 2>&1')
+    time.sleep(10)
+
+    h1.cmd('stdbuf -oL -eL iperf -s > result/STEP2-b-H1Server.log 2>&1 &')
+    time.sleep(1)
+    h2.cmd('iperf -n 10M -c 10.0.0.1 > result/STEP2-b-H2ClientToH1.log 2>&1 &')
+    h3.cmd('iperf -n 10M -c 10.0.0.1 > result/STEP2-b-H3ClientToH1.log 2>&1')
+    time.sleep(10)
+    
     net.stop()

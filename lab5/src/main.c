@@ -42,7 +42,13 @@ void handle_packet(iface_info_t *iface, char *packet, int len)
 	log(DEBUG, "the dst mac address is " ETHER_STRING ".\n", ETHER_FMT(eh->ether_dhost));
 
 	// TODO: implement the packet forwarding process here
-	fprintf(stdout, "TODO: implement the packet forwarding process here.\n");
+	iface_info_t* outIface = lookup_port(eh->ether_dhost);
+	if (!outIface) {
+		broadcast_packet(iface, packet, len);
+	} else {
+		iface_send_packet(outIface, packet, len);
+	}
+	insert_mac_port(eh->ether_shost, iface);
 }
 
 // open the interface to read all the necessary information
