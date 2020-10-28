@@ -40,11 +40,18 @@ class RingTopo(Topo):
         b2 = self.addHost('b2')
         b3 = self.addHost('b3')
         b4 = self.addHost('b4')
+        b5 = self.addHost('b5')
+        b6 = self.addHost('b6')
+        b7 = self.addHost('b7')
 
         self.addLink(b1, b2)
-        self.addLink(b1, b3)
-        self.addLink(b2, b4)
+        self.addLink(b2, b3)
         self.addLink(b3, b4)
+        self.addLink(b4, b5)
+        self.addLink(b5, b6)
+        self.addLink(b6, b7)
+        self.addLink(b7, b1)
+        self.addLink(b3, b7)
 
 if __name__ == '__main__':
     check_scripts()
@@ -52,7 +59,7 @@ if __name__ == '__main__':
     topo = RingTopo()
     net = Mininet(topo = topo, controller = None) 
 
-    for idx in range(4):
+    for idx in range(7):
         name = 'b' + str(idx+1)
         node = net.get(name)
         clearIP(node)
@@ -67,14 +74,14 @@ if __name__ == '__main__':
             node.setMAC(mac, intf = intf)
 
     net.start()
-    for idx in range(4):
+    for idx in range(7):
         name = 'b' + str(idx+1)
         node = net.get(name)
         node.cmd('stdbuf -oL -eL src/stp > result/%s-output.txt 2>&1 &' % name)
         #node.cmd('stdbuf -oL -eL src/stp-reference > result/%s-output.txt 2>&1 &' % name)
 
     time.sleep(30)
-    for idx in range(4):
+    for idx in range(7):
         name = 'b' + str(idx+1)
         node = net.get(name)
         node.cmd('pkill -SIGTERM stp')

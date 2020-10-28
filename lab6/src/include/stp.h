@@ -25,6 +25,8 @@ struct stp_port {
 	u64 designated_switch;		// the switch sending this config
 	int designated_port;		// the port sending this config
 	int designated_cost;		// path cost to root on port
+
+	struct stp_config config;
 };
 
 struct stp {

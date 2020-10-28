@@ -98,6 +98,11 @@ static void stp_send_config(stp_t *stp)
 	for (int i = 0; i < stp->nports; i++) {
 		stp_port_t *p = &stp->ports[i];
 		if (stp_port_is_designated(p)) {
+
+
+			if (i==1) {
+				fprintf(stdout, "DEBUG: CostOut: %d\n", p->designated_cost);
+			}
 			stp_port_send_config(p);
 		}
 	}
@@ -139,11 +144,110 @@ void *stp_timer_routine(void *arg)
 	return NULL;
 }
 
+// return 1 if stp_port_1 has higher priority
+int cmp_port_priority(stp_port_t *stp_port_1, stp_port_t *stp_port_2)
+{
+	// different root node ID
+	if (stp_port_1->designated_root < stp_port_2->designated_root) return 1;
+	if (stp_port_1->designated_root > stp_port_2->designated_root) return -1;
+
+	// different root path cost
+	if (stp_port_1->designated_cost < stp_port_2->designated_cost) return 1;
+	if (stp_port_1->designated_cost > stp_port_2->designated_cost) return -1;
+
+	// different previous node 
+	if (stp_port_1->designated_switch < stp_port_2->designated_switch) return 1;
+	if (stp_port_1->designated_switch > stp_port_2->designated_switch) return -1;
+
+	// different previous port
+	if (stp_port_1->designated_port < stp_port_2->designated_port) return 1;
+	if (stp_port_1->designated_port > stp_port_2->designated_port) return -1;
+
+	return 0;
+}
+
+void port_config_updateto_port(struct stp_config *config, stp_port_t *stp_port)
+{
+	stp_port->designated_root = ntohll(config->root_id);
+	stp_port->designated_cost = ntohl(config->root_path_cost);
+	stp_port->designated_switch = ntohll(config->switch_id);
+	stp_port->designated_port = ntohs(config->port_id);
+}
+
 static void stp_handle_config_packet(stp_t *stp, stp_port_t *p,
 		struct stp_config *config)
 {
 	// TODO: handle config packet here
-	fprintf(stdout, "TODO: handle config packet here.\n");
+	//fprintf(stdout, "TODO: handle config packet here.\n");
+
+	// save config
+	p->config = *config;
+
+	// Compare port priority
+	stp_port_t received_stp_port;
+	port_config_updateto_port(config, &received_stp_port);
+
+	// if find new config with higher priority
+	if (cmp_port_priority(&received_stp_port, p) == 1) {
+		// 1. update this port
+		port_config_updateto_port(config, p);
+
+		// 2. update node config
+		// a. find root port
+		for (int i = 0; i < stp->nports; i++) {
+			if (stp_port_is_designated(&(stp->ports[i])))
+				continue;
+			int j;
+			for (j = 0; j < stp->nports; j++)
+				if (!stp_port_is_designated(&(stp->ports[j])))
+					if (cmp_port_priority(&(stp->ports[j]), &(stp->ports[i])) == 1) break;
+			if (j == stp->nports) {
+				if (stp_is_root_switch(stp))
+					stp_stop_timer(&(stp->hello_timer));
+				stp->root_port = &(stp->ports[i]);
+			}
+		}
+
+		// b. set root node
+		if (stp->root_port == NULL){
+			stp->designated_root = stp->switch_id;
+			stp->root_path_cost = 0;
+		} else {
+			stp->designated_root = stp->root_port->designated_root;
+			stp->root_path_cost = stp->root_port->designated_cost + stp->root_port->path_cost;
+		}
+
+		// 3. update other ports config
+		for (int i = 0; i < stp->nports; i++) {
+			if (stp_port_is_designated(&(stp->ports[i]))) {
+				stp->ports[i].designated_root = stp->designated_root;
+				stp->ports[i].designated_cost = stp->root_path_cost;
+			} else {
+				stp_port_t other_stp_port;
+				port_config_updateto_port(&(stp->ports[i].config), &other_stp_port);
+				stp_port_t this_stp;
+				this_stp.designated_root = stp->designated_root;
+				this_stp.designated_cost = stp->root_path_cost;
+				this_stp.designated_switch = stp->switch_id;
+
+				fprintf(stdout, "DEBUG: CostIn: %d\n", stp->ports[i].config.root_path_cost);
+
+				if (cmp_port_priority(&this_stp, &other_stp_port) == 1) {
+					stp->ports[i].designated_root = stp->designated_root;
+					stp->ports[i].designated_cost = stp->root_path_cost;
+					stp->ports[i].designated_switch = stp->switch_id;
+					stp->ports[i].designated_port = stp->ports[i].port_id;
+				}
+			}
+		}
+
+		// 4. send new config of all updated ports
+		stp_send_config(stp);
+
+	} else {
+		// send new config of this updated port
+		stp_port_send_config(p);
+	}
 }
 
 static void *stp_dump_state(void *arg)
