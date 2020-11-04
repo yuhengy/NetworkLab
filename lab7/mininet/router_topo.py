@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 import glob
 
 from mininet.topo import Topo
@@ -69,5 +70,17 @@ if __name__ == '__main__':
     r1.cmd('./scripts/disable_ipv6.sh')
 
     net.start()
-    CLI(net)
+
+    #r1.cmd('stdbuf -oL -eL ./src/router > result/STEP1-router.txt 2>&1 &')
+    r1.cmd('stdbuf -oL -eL ./src/router-reference > result/STEP1-router.txt 2>&1 &')
+    time.sleep(1)
+
+    h1.cmd('ping -c 5 10.0.1.1 > result/STEP1a-pingR1.txt 2>&1')
+    h1.cmd('ping -c 5 10.0.2.22 > result/STEP1b-pingH2.txt 2>&1')
+    h1.cmd('ping -c 5 10.0.3.33 > result/STEP1c-pingH3.txt 2>&1')
+    h1.cmd('ping -c 5 10.0.3.11 > result/STEP1d-hostUnreach.txt 2>&1')
+    h1.cmd('ping -c 5 10.0.4.1 > result/STEP1e-netUnreach.txt 2>&1')
+    time.sleep(1)
+
+    #CLI(net)
     net.stop()

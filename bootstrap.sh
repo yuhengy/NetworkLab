@@ -17,6 +17,8 @@ pip3 install pysocks
 #pip3 install numpy matplotlib --proxy='http://192.168.3.2:7890'
 pip3 install numpy matplotlib --proxy='socks5://192.168.3.2:7890'
 
+apt-fast install -y arptables iptables # for lab 7
+
 
 echo "export https_proxy=http://192.168.3.2:7890 http_proxy=http://192.168.3.2:7890 all_proxy=socks5://192.168.3.2:7890" >> /home/vagrant/.bashrc
 
