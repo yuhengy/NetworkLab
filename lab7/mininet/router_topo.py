@@ -71,8 +71,8 @@ if __name__ == '__main__':
 
     net.start()
 
-    #r1.cmd('stdbuf -oL -eL ./src/router > result/STEP1-router.txt 2>&1 &')
-    r1.cmd('stdbuf -oL -eL ./src/router-reference > result/STEP1-router.txt 2>&1 &')
+    r1.cmd('stdbuf -oL -eL ./build/router > result/STEP1-router.txt 2>&1 &')
+    #r1.cmd('stdbuf -oL -eL ./build/router-reference > result/STEP1-router.txt 2>&1 &')
     time.sleep(1)
 
     h1.cmd('ping -c 5 10.0.1.1 > result/STEP1a-pingR1.txt 2>&1')
