@@ -1,6 +1,7 @@
 #include "etherPacketModule.h"
-#include "IPPacketModule.h"
 #include "ARPPacketModule.h"
+#include "IPPacketModule.h"
+#include "ICMPPacketModule.h"
 #include "iface.h"
 #include "endianSwap.h"
 #include "messyOldFramework/ether.h"
@@ -23,6 +24,7 @@
 etherPacketModule_c* etherPacketModule;
 ARPPacketModule_c*   ARPPacketModule;
 IPPacketModule_c*    IPPacketModule;
+ICMPPacketModule_c*  ICMPPacketModule;
 
 
 
@@ -31,8 +33,7 @@ IPPacketModule_c*    IPPacketModule;
 // according to ether_type
 void handle_packet(iface_info_t *iface, char *packet, int len)
 {
-  etherPacketModule->readPacket(packet, len, iface->index);
-  etherPacketModule->handleCurrentPacket();
+  etherPacketModule->handlePacket(packet, len, iface->index);
 
 }
 
@@ -69,7 +70,7 @@ void initRouterTable()
   rt_entry_t *entry = NULL;
   list_for_each_entry(entry, &rtable, list) {
     IPPacketModule->addRouterTableEntry(
-      entry->dest, entry->mask, entry->gw, entry->iface->index
+      entry->dest, entry->mask, entry->gw, entry->iface->index, entry->iface->ip
     );
   }
 
@@ -94,6 +95,7 @@ int main(int argc, const char **argv)
   etherPacketModule = new etherPacketModule_c();
   ARPPacketModule   = new ARPPacketModule_c();
   IPPacketModule    = new IPPacketModule_c();
+  ICMPPacketModule  = new ICMPPacketModule_c();
 
   initIfaceMacIPConfig();
   initRouterTable();
@@ -101,6 +103,8 @@ int main(int argc, const char **argv)
   etherPacketModule->addIPPacketModule(IPPacketModule);
   ARPPacketModule->addEtherPacketModule(etherPacketModule);
   IPPacketModule->addEtherPacketModule(etherPacketModule);
+  IPPacketModule->addICMPPacketModule(ICMPPacketModule);
+  ICMPPacketModule->addIPPacketModule(IPPacketModule);
 
   ustack_run();
 

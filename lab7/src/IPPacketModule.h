@@ -2,6 +2,7 @@
 #define __IPPACKETMODULE_H__
 
 class etherPacketModule_c;
+class ICMPPacketModule_c;
 #include "routerTable.h"
 #include <stdint.h>
 #include <list>
@@ -9,15 +10,18 @@ class etherPacketModule_c;
 
 class IPPacketModule_c {
 public:
-  IPPacketModule_c();  //TODO erase this
   void addIPAddr(uint32_t IPAddr);
   void addEtherPacketModule(etherPacketModule_c* _etherPacketModule);
+  void addICMPPacketModule(ICMPPacketModule_c* _ICMPPacketModule);
   void addRouterTableEntry(
-    uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex
+    uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
   );
 
-  void readPacket(char* _packet, int _packetLen);
-  void handleCurrentPacket();
+  void handlePacket(char* etherPacket, int etherPacketLen);
+  void sendPacket(
+    uint8_t ttl, uint8_t protocol, uint32_t daddr,
+    char* upLayerPacket, int upLayerPacketLen
+  );
 
   void debug_printCurrentPacketHeader();
   void debug_printIPList();
@@ -28,12 +32,10 @@ private:
   // configuration
   std::list<uint32_t> IPList;
   etherPacketModule_c* etherPacketModule;
+  ICMPPacketModule_c* ICMPPacketModule;
 
-  // packet information
-  char *packet;
-  int packetLen;
-
-  struct __attribute__ ((packed)) IPHeader_t {
+  // header
+  struct __attribute__ ((packed)) IPHeader_t {  //TODO header length can change
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     uint8_t  ihl:4;
     uint8_t  version:4;

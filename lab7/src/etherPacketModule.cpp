@@ -8,11 +8,6 @@
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
 
-etherPacketModule_c::etherPacketModule_c()
-{
-
-}
-
 void etherPacketModule_c::addIface(int index, iface_c* iface)
 {
   ifaceMap[index] = iface;
@@ -30,20 +25,15 @@ void etherPacketModule_c::addIPPacketModule(IPPacketModule_c* _IPPacketModule)
 
 //--------------------------------------------------------------------
 
-void etherPacketModule_c::readPacket(char* etherPacket, int etherPacketLen, int _ifaceIndex)
+void etherPacketModule_c::handlePacket(char* etherPacket, int etherPacketLen, int ifaceIndex)
 {
-  packet     = etherPacket;
-  packetLen  = etherPacketLen;
-  ifaceIndex = _ifaceIndex;
-
-  header = *((struct etherHeader_t *)packet);
+  header = *((struct etherHeader_t *)etherPacket);
   endianSwap((uint8_t*)&(header)            , 6);
   endianSwap(((uint8_t*)&(header)) + 6      , 6);
   endianSwap((uint8_t*)&(header.ether_type) , 2);
-}
 
-void etherPacketModule_c::handleCurrentPacket()
-{
+
+
   printf("\n\n");
   printf("******************************************************\n");
   printf("****etherPacketModule_c::handleCurrentPacket start****\n");
@@ -55,19 +45,17 @@ void etherPacketModule_c::handleCurrentPacket()
 
   switch (header.ether_type) {
     case 0x0800:
-      IPPacketModule->readPacket(
-        packet + sizeof(struct etherHeader_t),
-        packetLen - sizeof(struct etherHeader_t)
+      IPPacketModule->handlePacket(
+        etherPacket + sizeof(struct etherHeader_t),
+        etherPacketLen - sizeof(struct etherHeader_t)
       );
-      IPPacketModule->handleCurrentPacket();
       break;
     case 0x0806:
-      ARPPacketModule->readPacket(
-        packet + sizeof(struct etherHeader_t),
-        packetLen - sizeof(struct etherHeader_t),
+      ARPPacketModule->handlePacket(
+        etherPacket + sizeof(struct etherHeader_t),
+        etherPacketLen - sizeof(struct etherHeader_t),
         ifaceIndex
       );
-      ARPPacketModule->handleCurrentPacket();
       break;
     default:
       printf("ERROR: Unknown etherPacket type 0x%04x, ingore it.", header.ether_type);
@@ -75,26 +63,24 @@ void etherPacketModule_c::handleCurrentPacket()
   }
 }
 
-void etherPacketModule_c::writePacket(
-    uint64_t ether_dhost, uint64_t ether_shost, uint16_t ether_type,
-    char* IPARPPacket, int IPARPPacketLen, int _ifaceIndex
+void etherPacketModule_c::sendPacket(
+    uint64_t ether_dhost, uint16_t ether_type,
+    char* upLayerPacket, int upLayerPacketLen, int ifaceIndex
   )
 {
-  packet     = IPARPPacket    - sizeof(struct etherHeader_t);
-  packetLen  = IPARPPacketLen + sizeof(struct etherHeader_t);
-  ifaceIndex = _ifaceIndex;
+  char* etherPacket    = upLayerPacket    - sizeof(struct etherHeader_t);
+  int   etherPacketLen = upLayerPacketLen + sizeof(struct etherHeader_t);
 
   header.ether_dhost = ether_dhost;
-  header.ether_shost = ether_shost;
+  header.ether_shost = ifaceMap.find(ifaceIndex)->second->getMac();
   header.ether_type  = ether_type;
-  *((struct etherHeader_t *)packet) = header;
-  endianSwap( (uint8_t*)packet      , 6);
-  endianSwap(((uint8_t*)packet) + 6 , 6);
-  endianSwap(((uint8_t*)packet) + 12, 2);
-}
+  *((struct etherHeader_t *)etherPacket) = header;
+  endianSwap( (uint8_t*)etherPacket      , 6);
+  endianSwap(((uint8_t*)etherPacket) + 6 , 6);
+  endianSwap(((uint8_t*)etherPacket) + 12, 2);
 
-void etherPacketModule_c::sendPacket()
-{
+
+
   printf("\n\n");
   printf("******************************************************\n");
   printf("*********etherPacketModule_c::sendPacket start********\n");
@@ -112,7 +98,7 @@ void etherPacketModule_c::sendPacket()
   addr.sll_protocol = htons(header.ether_type);
   memcpy(addr.sll_addr, &header, 6);
 
-  if (sendto(ifaceMap.find(ifaceIndex)->second->getFd(), packet, packetLen, 0, (const struct sockaddr *)&addr,
+  if (sendto(ifaceMap.find(ifaceIndex)->second->getFd(), etherPacket, etherPacketLen, 0, (const struct sockaddr *)&addr,
         sizeof(struct sockaddr_ll)) < 0) {
     printf("Error: Send raw packet failed");
   }

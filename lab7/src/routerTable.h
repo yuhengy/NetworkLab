@@ -3,12 +3,13 @@
 
 #include <stdint.h>
 #include <list>
+#include "iface.h"
 
 
 class routerTable_c {
 public:
   void addRouterTableEntry(
-    uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex
+    uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
   );
   bool findNextIPIface(
     uint32_t destIP, uint32_t* nextIP, int* nextIfaceIndex
@@ -25,7 +26,8 @@ private:
     uint32_t mask;       // network mask of dest
     uint32_t gw;         // ip address of next hop (will be 0 if dest is in 
                 // the same network with iface)
-    int ifaceIndex;   // index of the interface
+    int ifaceIndex;
+    uint32_t ifaceIP;
   };
 
   std::list<struct routerTableEntry_t*> routerTable;

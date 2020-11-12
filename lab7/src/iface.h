@@ -12,8 +12,9 @@ public:
   void sendPacket(char *packet, int len);
 
   void debug_printiface();
-  uint32_t getIP() { return info.ip; }
-  uint32_t getFd() { return info.fd; }
+  int      getFd()  { return info.fd;  }
+  uint32_t getIP()  { return info.ip;  }
+  uint64_t getMac() { return info.mac; }
 
 
 private:

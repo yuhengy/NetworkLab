@@ -4,11 +4,6 @@
 #include "etherPacketModule.h"
 #include <stdio.h>
 
-ARPPacketModule_c::ARPPacketModule_c()
-{
-
-}
-
 void ARPPacketModule_c::addIfaceIPToMac(uint32_t ifaceIP, uint64_t ifaceMac)
 {
   ifaceIPToMacMap[ifaceIP] = ifaceMac;
@@ -21,13 +16,9 @@ void ARPPacketModule_c::addEtherPacketModule(etherPacketModule_c* _etherPacketMo
 
 //--------------------------------------------------------------------
 
-void ARPPacketModule_c::readPacket(char* ARPPacket, int ARPPacketLen, int _ifaceIndex)
+void ARPPacketModule_c::handlePacket(char* ARPPacket, int ARPPacketLen, int ifaceIndex)
 {
-  packet     = ARPPacket;
-  packetLen  = ARPPacketLen;
-  ifaceIndex = _ifaceIndex;
-
-  header = *((struct ARPHeader_t *)packet);
+  header = *((struct ARPHeader_t *)ARPPacket);
   endianSwap((uint8_t*)&(header.arp_hrd), 2);
   endianSwap((uint8_t*)&(header.arp_pro), 2);
   endianSwap((uint8_t*)&(header.arp_op) , 2);
@@ -35,10 +26,9 @@ void ARPPacketModule_c::readPacket(char* ARPPacket, int ARPPacketLen, int _iface
   endianSwap((uint8_t*)&(header.arp_spa), 4);
   endianSwap(((uint8_t*)&(header.arp_spa)) + 4, 6);
   endianSwap((uint8_t*)&(header.arp_tpa), 4);
-}
 
-void ARPPacketModule_c::handleCurrentPacket()
-{
+
+
   printf("\n\n");
   printf("****************************************************\n");
   printf("****ARPPacketModule_c::handleCurrentPacket start****\n");
@@ -50,7 +40,7 @@ void ARPPacketModule_c::handleCurrentPacket()
 
   switch (header.arp_op) {
     case 0x0001:
-      handleReq();  break;
+      handleReq(ARPPacket, ARPPacketLen, ifaceIndex);  break;
     case 0x0002:
       handleResp(); break;
     default:
@@ -59,15 +49,13 @@ void ARPPacketModule_c::handleCurrentPacket()
   }
 }
 
-void ARPPacketModule_c::writePacket(
+void ARPPacketModule_c::sendPacket(
   uint16_t arp_op,
   uint64_t arp_sha, uint32_t arp_spa, uint64_t arp_tha, uint32_t arp_tpa,
-  char* applicationPacket, int applicationPacketLen, int _ifaceIndex
+  char* upLayerPacket, int upLayerPacketLen, int _ifaceIndex
 )
 {
-  packet     = applicationPacket    - sizeof(struct ARPHeader_t);
-  packetLen  = applicationPacketLen + sizeof(struct ARPHeader_t);
-  ifaceIndex = _ifaceIndex;
+  char* ARPPacket = upLayerPacket - sizeof(struct ARPHeader_t);
 
   header.arp_hrd = 0x0001;
   header.arp_pro = 0x0800;
@@ -78,18 +66,16 @@ void ARPPacketModule_c::writePacket(
   header.arp_spa = arp_spa;
   header.arp_tha = arp_tha;
   header.arp_tpa = arp_tpa;
-  (*((struct ARPHeader_t *)packet)) = header;
-  endianSwap( (uint8_t*)packet      , 2);
-  endianSwap(((uint8_t*)packet) + 2 , 2);
-  endianSwap(((uint8_t*)packet) + 6 , 2);
-  endianSwap(((uint8_t*)packet) + 8 , 6);
-  endianSwap(((uint8_t*)packet) + 14, 4);
-  endianSwap(((uint8_t*)packet) + 18, 6);
-  endianSwap(((uint8_t*)packet) + 24, 4);
-}
+  *((struct ARPHeader_t *)ARPPacket) = header;
+  endianSwap( (uint8_t*)ARPPacket      , 2);
+  endianSwap(((uint8_t*)ARPPacket) + 2 , 2);
+  endianSwap(((uint8_t*)ARPPacket) + 6 , 2);
+  endianSwap(((uint8_t*)ARPPacket) + 8 , 6);
+  endianSwap(((uint8_t*)ARPPacket) + 14, 4);
+  endianSwap(((uint8_t*)ARPPacket) + 18, 6);
+  endianSwap(((uint8_t*)ARPPacket) + 24, 4);
 
-void ARPPacketModule_c::sendPacket()
-{
+
   printf("\n\n");
   printf("******************************************************\n");
   printf("**********ARPPacketModule_c::sendPacket start*********\n");
@@ -99,27 +85,25 @@ void ARPPacketModule_c::sendPacket()
   printf("**********ARPPacketModule_c::sendPacket end*********\n");
   printf("****************************************************\n");
 
-  etherPacketModule->writePacket(
-    header.arp_tha, header.arp_sha, 0x0806,
-    packet, packetLen, ifaceIndex
+  etherPacketModule->sendPacket(
+    header.arp_tha, 0x0806,
+    ARPPacket, upLayerPacketLen + sizeof(struct ARPHeader_t), _ifaceIndex
   );
-  etherPacketModule->sendPacket();
 }
 
 //--------------------------------------------------------------------
 
-void ARPPacketModule_c::handleReq()
+void ARPPacketModule_c::handleReq(char* ARPPacket, int ARPPacketLen, int ifaceIndex)
 {
   std::map<uint32_t, uint64_t>::iterator iter = ifaceIPToMacMap.find(header.arp_tpa);
   if(iter != ifaceIPToMacMap.end()) {
-    writePacket(
+    sendPacket(
       0x0002,
       iter->second, header.arp_tpa, header.arp_sha, header.arp_spa,
-      packet + sizeof(struct ARPHeader_t),
-      packetLen - sizeof(struct ARPHeader_t),
+      ARPPacket + sizeof(struct ARPHeader_t),
+      ARPPacketLen - sizeof(struct ARPHeader_t),
       ifaceIndex
     );
-    sendPacket();
   }
 }
 

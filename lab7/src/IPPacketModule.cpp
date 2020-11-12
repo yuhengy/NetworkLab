@@ -1,13 +1,10 @@
 #include "IPPacketModule.h"
 
 #include "endianSwap.h"
+#include "checksumBase.h"
+#include "ICMPPacketModule.h"
 #include <stdio.h>
 #include <algorithm>
-
-IPPacketModule_c::IPPacketModule_c()
-{
-
-}
 
 void IPPacketModule_c::addIPAddr(uint32_t IPAddr)
 {
@@ -19,28 +16,31 @@ void IPPacketModule_c::addEtherPacketModule(etherPacketModule_c* _etherPacketMod
   etherPacketModule = _etherPacketModule;
 }
 
+void IPPacketModule_c::addICMPPacketModule(ICMPPacketModule_c* _ICMPPacketModule)
+{
+  ICMPPacketModule = _ICMPPacketModule;
+}
+
 void IPPacketModule_c::addRouterTableEntry(
-    uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex
+    uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
   )
 {
-  routerTable.addRouterTableEntry(dest, mask, gw, ifaceIndex);
+  routerTable.addRouterTableEntry(dest, mask, gw, ifaceIndex, ifaceIP);
 }
 
 //--------------------------------------------------------------------
 
-void IPPacketModule_c::readPacket(char *packet, int len)
+void IPPacketModule_c::handlePacket(char* etherPacket, int etherPacketLen)
 {
-  header = *((struct IPHeader_t *)packet);
+  header = *((struct IPHeader_t *)etherPacket);
   endianSwap((uint8_t*)&(header.tot_len) , 2);
   endianSwap((uint8_t*)&(header.id)      , 2);
   endianSwap((uint8_t*)&(header.frag_off), 2);
   endianSwap((uint8_t*)&(header.checksum), 2);
   endianSwap((uint8_t*)&(header.saddr)   , 4);
   endianSwap((uint8_t*)&(header.daddr)   , 4);
-}
 
-void IPPacketModule_c::handleCurrentPacket()
-{
+
   printf("******************************************************\n");
   printf("******IPPacketModule_c::handleCurrentPacket start*****\n");
   printf("******************************************************\n");
@@ -53,9 +53,7 @@ void IPPacketModule_c::handleCurrentPacket()
   uint32_t nextIP;
   int nextIfaceIndex;
 
-  std::list<uint32_t>::iterator iter =
-    find(IPList.begin(),IPList.end(),header.daddr);
-
+  std::list<uint32_t>::iterator iter = find(IPList.begin(),IPList.end(),header.daddr);
   if (iter != IPList.end()) {
     switch (header.protocol) {
       case 0x01:
@@ -70,9 +68,70 @@ void IPPacketModule_c::handleCurrentPacket()
     handleForward();
   }
   else {
-    printf("???????????TODO: upload to ICMP as NetNotFound\n");
+    ICMPPacketModule->handlePacket(
+      etherPacket + header.ihl * 4, etherPacketLen - header.ihl * 4,
+      etherPacket, header.ihl * 4,
+      0x03, 0x00
+    );
   }
 }
+
+void IPPacketModule_c::sendPacket(
+  uint8_t ttl, uint8_t protocol, uint32_t daddr,
+  char* upLayerPacket, int upLayerPacketLen
+)
+{
+  char* packet     = upLayerPacket    - sizeof(struct IPHeader_t);
+  int packetLen  = upLayerPacketLen + sizeof(struct IPHeader_t);
+
+  header.version  = 0x4;
+  header.ihl      = 0x5;
+  header.tos      = 0x00;
+  header.tot_len  = packetLen;
+  header.id       = 0x0000;
+  header.frag_off = 0x4000;
+  header.ttl      = ttl;
+  header.protocol = protocol;
+  header.checksum = 0x0000;
+  header.daddr    = daddr;
+
+
+  //header.saddr    = saddr;
+  //uint64_t targetMac = ;
+  printf("???????????TODO: look arp cache\n");
+
+  *((struct IPHeader_t *)packet) = header;
+  endianSwap(((uint8_t*)packet) + 2 , 2);
+  endianSwap(((uint8_t*)packet) + 4 , 2);
+  endianSwap(((uint8_t*)packet) + 6 , 2);
+  endianSwap(((uint8_t*)packet) + 12, 4);
+  endianSwap(((uint8_t*)packet) + 16, 4);
+
+  header.checksum = checksumBase((uint16_t *)packet, 20, 0);
+  ((struct IPHeader_t *)packet)->checksum = header.checksum;
+  endianSwap(((uint8_t*)packet) + 10, 2);
+
+
+
+  printf("\n\n");
+  printf("******************************************************\n");
+  printf("**********IPPacketModule_c::sendPacket start**********\n");
+  printf("******************************************************\n");
+  debug_printCurrentPacketHeader();
+  printf("****************************************************\n");
+  printf("**********IPPacketModule_c::sendPacket end**********\n");
+  printf("****************************************************\n");
+
+
+
+/*
+  etherPacketModule->sendPacket(
+    targetMac, 0x0800,
+    packet, packetLen, ifaceIndex
+  );
+*/
+}
+
 
 //--------------------------------------------------------------------
 

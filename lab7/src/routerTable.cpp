@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 void routerTable_c::addRouterTableEntry(
-    uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex
+    uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
   )
 {
   routerTableEntry_t* routerTableEntry = new routerTableEntry_t;
@@ -11,6 +11,7 @@ void routerTable_c::addRouterTableEntry(
   routerTableEntry->mask       = mask;
   routerTableEntry->gw         = gw;
   routerTableEntry->ifaceIndex = ifaceIndex;
+  routerTableEntry->ifaceIP    = ifaceIP;
   routerTable.push_back(routerTableEntry);
 }
 
@@ -26,7 +27,7 @@ bool routerTable_c::findNextIPIface(
   for (std::list<struct routerTableEntry_t*>::iterator iter =
     routerTable.begin(); iter != routerTable.end(); iter++){
 
-    if ((destIP & (*iter)->mask) == (destIP & (*iter)->mask)) {
+    if ((destIP & (*iter)->mask) == ((*iter)->dest & (*iter)->mask)) {
       if ((*iter)->mask > maxMatchLength) {
         maxMatchLength = (*iter)->mask;
         maxMatchRouterTableEntry = (*iter);
@@ -58,7 +59,8 @@ void routerTable_c::debug_printRouterTable()
     printf("dest: 0x%08x  ", (*iter)->dest);
     printf("mask: 0x%08x  ", (*iter)->mask);
     printf("gw: 0x%08x  ", (*iter)->gw);
-    printf("ifaceIndex: %d\n", (*iter)->ifaceIndex);
+    printf("ifaceIndex: %d  ", (*iter)->ifaceIndex);
+    printf("ifaceIP: 0x%08x\n", (*iter)->ifaceIP);
   }
   printf("^^^^^^^^^^^^^^^IP routerTable end^^^^^^^^^^^^^^^\n");
 }
