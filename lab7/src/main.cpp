@@ -1,9 +1,14 @@
+#include "etherPacketModule.h"
 #include "IPPacketModule.h"
+#include "ARPPacketModule.h"
+#include "iface.h"
+#include "endianSwap.h"
 #include "messyOldFramework/ether.h"
 #include "messyOldFramework/main.c"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <poll.h>
 #include <net/if.h>
@@ -13,7 +18,12 @@
 #include <netinet/in.h>
 #include <linux/if_packet.h>
 
-IPPacketModule_c* IPPacketModule;
+#include <map>
+
+etherPacketModule_c* etherPacketModule;
+ARPPacketModule_c*   ARPPacketModule;
+IPPacketModule_c*    IPPacketModule;
+
 
 
 
@@ -21,27 +31,39 @@ IPPacketModule_c* IPPacketModule;
 // according to ether_type
 void handle_packet(iface_info_t *iface, char *packet, int len)
 {
-  struct ether_header *eh = (struct ether_header *)packet;
+  etherPacketModule->readPacket(packet, len, iface->index);
+  etherPacketModule->handleCurrentPacket();
 
-  // log(DEBUG, "got packet from %s, %d bytes, proto: 0x%04hx\n", 
-  //    iface->name, len, ntohs(eh->ether_type));
-  switch (ntohs(eh->ether_type)) {
-    case ETH_P_IP:
-      IPPacketModule->readIPPacket(packet + ETHER_HDR_SIZE, len);
-      IPPacketModule->handleCurrentIPPacket();
-      break;
-    case ETH_P_ARP:
-      handle_arp_packet(iface, packet + ETHER_HDR_SIZE, len);
-      break;
-    default:
-      log(ERROR, "Unknown packet type 0x%04hx, ingore it.", \
-          ntohs(eh->ether_type));
-      break;
-  }
 }
 
 
+void initNetworkConfig()
+{
+  iface_info_t *iface = NULL;
+  uint64_t mac;
+  list_for_each_entry(iface, &instance->iface_list, list) {
+    mac = 0;
+    memcpy(((char*)(&(mac))) + 2, iface->mac, 6);
+    endianSwap((uint8_t*)&mac, 8);
 
+    etherPacketModule->addIface(iface->index, 
+      new iface_c(iface->fd, iface->index, mac, iface->ip, iface->mask, iface->name, iface->ip_str));
+    ARPPacketModule->addIfaceIPToMac(iface->ip, mac);
+    IPPacketModule->addIPAddr(iface->ip);
+  }
+
+  printf("\n\n");
+  printf("**********************************************\n");
+  printf("*********init initNetworkConfig start*********\n");
+  printf("**********************************************\n");
+  etherPacketModule->debug_printIfaceMap();
+  ARPPacketModule->debug_printMacList();
+  IPPacketModule->debug_printIPList();
+  printf("********************************************\n");
+  printf("*********init initNetworkConfig end*********\n");
+  printf("********************************************\n");
+
+}
 
 
 int main(int argc, const char **argv)
@@ -51,7 +73,15 @@ int main(int argc, const char **argv)
     exit(1);
   }
   init_ustack();
-  IPPacketModule = new IPPacketModule_c();
+  etherPacketModule = new etherPacketModule_c();
+  ARPPacketModule   = new ARPPacketModule_c();
+  IPPacketModule    = new IPPacketModule_c();
+
+  initNetworkConfig();
+  etherPacketModule->addARPPacketModule(ARPPacketModule);
+  etherPacketModule->addIPPacketModule(IPPacketModule);
+  ARPPacketModule->addEtherPacketModule(etherPacketModule);
+  IPPacketModule->addEtherPacketModule(etherPacketModule);
 
   ustack_run();
 
