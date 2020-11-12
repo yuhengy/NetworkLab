@@ -3,7 +3,6 @@
 #include "endianSwap.h"
 #include "etherPacketModule.h"
 #include <stdio.h>
-#include <algorithm>
 
 ARPPacketModule_c::ARPPacketModule_c()
 {
@@ -55,7 +54,7 @@ void ARPPacketModule_c::handleCurrentPacket()
     case 0x0002:
       handleResp(); break;
     default:
-      printf("ERROR: Unknown ARPPacket type 0x%02x, ingore it.", header.arp_op);
+      printf("ERROR: Unknown ARPPacket type 0x%04x, ingore it.", header.arp_op);
       break;
   }
 }

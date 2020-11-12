@@ -25,9 +25,11 @@ public:
 
 
 private:
+  // configuration
   std::map<uint32_t, uint64_t> ifaceIPToMacMap;
   etherPacketModule_c* etherPacketModule;
 
+  // packet information
   char *packet;
   int packetLen;
   int ifaceIndex;
@@ -44,6 +46,7 @@ private:
     uint32_t arp_tpa;    /* target protocol address */
   } header;
 
+  // handle packet in this layer
   void handleReq();
   void handleResp();
 

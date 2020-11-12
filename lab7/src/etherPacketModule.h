@@ -26,10 +26,12 @@ public:
   void debug_printIfaceMap();
 
 private:
+  // configuration
   std::map<int, iface_c*> ifaceMap;
   ARPPacketModule_c* ARPPacketModule;
   IPPacketModule_c* IPPacketModule;
 
+  // packet information
   char* packet;
   int packetLen;
   int ifaceIndex;

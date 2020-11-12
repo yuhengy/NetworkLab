@@ -37,7 +37,7 @@ void handle_packet(iface_info_t *iface, char *packet, int len)
 }
 
 
-void initNetworkConfig()
+void initIfaceMacIPConfig()
 {
   iface_info_t *iface = NULL;
   uint64_t mac;
@@ -62,7 +62,25 @@ void initNetworkConfig()
   printf("********************************************\n");
   printf("*********init initNetworkConfig end*********\n");
   printf("********************************************\n");
+}
 
+void initRouterTable()
+{
+  rt_entry_t *entry = NULL;
+  list_for_each_entry(entry, &rtable, list) {
+    IPPacketModule->addRouterTableEntry(
+      entry->dest, entry->mask, entry->gw, entry->iface->index
+    );
+  }
+
+  printf("\n\n");
+  printf("**********************************************\n");
+  printf("**********init initRouterTable start**********\n");
+  printf("**********************************************\n");
+  IPPacketModule->debug_printRouterTable();
+  printf("********************************************\n");
+  printf("**********init initRouterTable end**********\n");
+  printf("********************************************\n");
 }
 
 
@@ -77,7 +95,8 @@ int main(int argc, const char **argv)
   ARPPacketModule   = new ARPPacketModule_c();
   IPPacketModule    = new IPPacketModule_c();
 
-  initNetworkConfig();
+  initIfaceMacIPConfig();
+  initRouterTable();
   etherPacketModule->addARPPacketModule(ARPPacketModule);
   etherPacketModule->addIPPacketModule(IPPacketModule);
   ARPPacketModule->addEtherPacketModule(etherPacketModule);

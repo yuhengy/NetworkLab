@@ -15,6 +15,8 @@ Summary these problems are really out of students' responsibility, considering t
 + easy to startup: do not init unimplemented with printing TODO, try init it with printing all input. This is helpful for us to know what this function will do.
 + bad abstraction: when we save netend, and when we save hostend? We should only use netend when data is in the packet. We should change data into hostend whenever we copy the packet data into our classes. Moreover, why not baidu `change data end` and find a better changeEnd fucntion?
 + bug: in `ip.h`, `iphdr`, ihl and version do not depend on endian.
++ bad abstraction: rtable is tightly related with IPModule, so, rtable should not be global visible, sothat people will be clear that we only need to consider rtable in IPModule.
++ consistent: it is important to know the difference of handling in this layer, and upload this packet to upper layer. Sothat, this can be consistent with host network architecture.
 
 
 ## arp part
@@ -28,6 +30,7 @@ Summary these problems are really out of students' responsibility, considering t
 + naming: in `list.h`, please not use name `new`, which is uncompatible with C++.
 + consistent: mac addr should also be store as uint instead of char[]. So that, all ip, mask, mac, ttl, etc. should change endian. 
 + bad abstraction: at the top of IP/ARP, I add a virtual application layer to decide what packet IP/ARP will send. This virtual application can keep IP/ARP holding a interface to upper layer, which is a good abstraction of them.
+
 
 ## good part
 + less copy: all modules handle the packet pointing to the same memory.

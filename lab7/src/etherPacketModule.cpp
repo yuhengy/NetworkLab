@@ -70,7 +70,7 @@ void etherPacketModule_c::handleCurrentPacket()
       ARPPacketModule->handleCurrentPacket();
       break;
     default:
-      printf("ERROR: Unknown etherPacket type 0x%02x, ingore it.", header.ether_type);
+      printf("ERROR: Unknown etherPacket type 0x%04x, ingore it.", header.ether_type);
       break;
   }
 }

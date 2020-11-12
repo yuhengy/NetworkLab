@@ -2,6 +2,7 @@
 
 #include "endianSwap.h"
 #include <stdio.h>
+#include <algorithm>
 
 IPPacketModule_c::IPPacketModule_c()
 {
@@ -16,6 +17,13 @@ void IPPacketModule_c::addIPAddr(uint32_t IPAddr)
 void IPPacketModule_c::addEtherPacketModule(etherPacketModule_c* _etherPacketModule)
 {
   etherPacketModule = _etherPacketModule;
+}
+
+void IPPacketModule_c::addRouterTableEntry(
+    uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex
+  )
+{
+  routerTable.addRouterTableEntry(dest, mask, gw, ifaceIndex);
 }
 
 //--------------------------------------------------------------------
@@ -40,6 +48,37 @@ void IPPacketModule_c::handleCurrentPacket()
   printf("****************************************************\n");
   printf("******IPPacketModule_c::handleCurrentPacket end*****\n");
   printf("****************************************************\n");
+
+
+  uint32_t nextIP;
+  int nextIfaceIndex;
+
+  std::list<uint32_t>::iterator iter =
+    find(IPList.begin(),IPList.end(),header.daddr);
+
+  if (iter != IPList.end()) {
+    switch (header.protocol) {
+      case 0x01:
+        printf("???????????TODO: upload to ICMP as normal\n");
+        break;
+      default:
+        printf("ERROR: Unknown IPPacket type 0x%02x, ingore it.", header.protocol);
+        break;
+    }
+  }
+  else if (routerTable.findNextIPIface(header.daddr, &nextIP, &nextIfaceIndex)) {
+    handleForward();
+  }
+  else {
+    printf("???????????TODO: upload to ICMP as NetNotFound\n");
+  }
+}
+
+//--------------------------------------------------------------------
+
+void IPPacketModule_c::handleForward()
+{
+  printf("???????????TODO: handleForward\n");
 }
 
 //--------------------------------------------------------------------
@@ -63,10 +102,17 @@ void IPPacketModule_c::debug_printCurrentPacketHeader()
 
 void IPPacketModule_c::debug_printIPList()
 {
-  printf("---------------ARP IPList start---------------\n");
-  for (std::list<uint32_t>::iterator iter = IPList.begin();
-    iter != IPList.end(); iter++){
+  printf("---------------IP IPList start---------------\n");
+  for (std::list<uint32_t>::iterator iter =
+    IPList.begin(); iter != IPList.end(); iter++){
+
     printf("IPAddr: 0x%08x\n", *iter);
   }
-  printf("^^^^^^^^^^^^^^^ARP IPList end^^^^^^^^^^^^^^^\n");
+  printf("^^^^^^^^^^^^^^^IP IPList end^^^^^^^^^^^^^^^\n");
+}
+
+
+void IPPacketModule_c::debug_printRouterTable()
+{
+  routerTable.debug_printRouterTable();
 }
