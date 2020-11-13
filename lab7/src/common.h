@@ -5,5 +5,6 @@
 
 #define ETHER_HEADER_LEN 14
 #define ARP_HEADER_LEN 28
+#define ICMP_HEADER_LEN 4
 
 #endif

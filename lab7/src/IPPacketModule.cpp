@@ -60,10 +60,22 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
 
 
   std::list<uint32_t>::iterator iter = find(IPList.begin(),IPList.end(),header.daddr);
-  if (iter != IPList.end()) {
+
+  if (header.ttl == 1) {
+    ICMPPacketModule->handlePacket(
+      IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4, header.saddr,
+      IPPacket, header.ihl * 4,
+      0x0b, 0x00
+    );
+  }
+  else if (iter != IPList.end()) {
     switch (header.protocol) {
       case 0x01:
-        printf("???????????TODO: upload to ICMP as normal\n");
+        ICMPPacketModule->handlePacket(
+          IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4, header.saddr,
+          IPPacket, header.ihl * 4,
+          0x00, 0x00
+        );
         break;
       default:
         printf("ERROR: Unknown IPPacket type 0x%02x, ingore it.", header.protocol);
@@ -188,9 +200,6 @@ void IPPacketModule_c::sendPacket(
 
 void IPPacketModule_c::handleForward(char* IPPacket, int IPPacketLen)
 {
-  printf("???????????TODO: handleForward\n");
-
-  printf("???????????IP1: %08x\n", header.saddr);
   sendPacket(
     header.ttl - 1, header.protocol, header.saddr, header.daddr, header.ihl,
     IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4
@@ -211,9 +220,27 @@ void IPPacketModule_c::handleARPCacheMiss(
   );
 
   ARPMissPendingBuff.addARPMissPendingBuffEntry(
+    nextIP,
     ttl, protocol, saddr, daddr, ihl,
     upLayerPacket, upLayerPacketLen
   );
+
+}
+
+//--------------------------------------------------------------------
+
+// TODO this funciton is very bad
+void IPPacketModule_c::sweepARPMissPendingBuff()
+{
+  struct ARPMissPendingEntry_c* entry;
+  while ((entry = ARPMissPendingBuff.getTimeoutEntry()) != NULL) {
+    printf("----> sweep a ARPMissPendingEntry\n");
+    ICMPPacketModule->handlePacket(
+      entry->upLayerPacket, entry->upLayerPacketLen, entry->saddr,
+      entry->upLayerPacket - 20, 20,
+      0x03, 0x01
+    );
+  }
 
 }
 

@@ -42,6 +42,9 @@ private:
 
   // handle packet in this layer
   void handleRouterTableFail(char* IPHeader, int IPHeaderLen, uint32_t soureIP);
+  void handleTTLZeroFail(char* IPHeader, int IPHeaderLen, uint32_t soureIP);
+  void handleARPFail(char* IPHeader, int IPHeaderLen, uint32_t soureIP);
+  void handlePingResp(char* ICMPPacket, int ICMPPacketLen, uint32_t soureIP);
 
 
 };

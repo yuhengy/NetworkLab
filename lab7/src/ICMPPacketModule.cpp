@@ -39,6 +39,15 @@ void ICMPPacketModule_c::handlePacket(
   if (type == 0x03 && code == 0x00) {
     handleRouterTableFail(IPHeader, IPHeaderLen, soureIP);
   }
+  else if (type == 0x0b && code == 0x00) {
+    handleTTLZeroFail(IPHeader, IPHeaderLen, soureIP);
+  }
+  else if (type == 0x03 && code == 0x01) {
+    handleARPFail(IPHeader, IPHeaderLen, soureIP);
+  }
+  else if (type == 0x00 && code == 0x00) {
+    handlePingResp(ICMPPacket + ICMP_HEADER_LEN, ICMPPacketLen - ICMP_HEADER_LEN, soureIP);
+  }
   else {
     printf("???????????TODO: ICMP only support handleRouterTableFail\n");
   }
@@ -86,8 +95,8 @@ void ICMPPacketModule_c::sendPacket(
 void ICMPPacketModule_c::handleRouterTableFail(char* IPHeader, int IPHeaderLen, uint32_t soureIP)
 {
 
-  char* packet = (char*)malloc(ETHER_HEADER_LEN + 20 + 4 + 4 + IPHeaderLen + 8);
-  char* packetContent = packet + ETHER_HEADER_LEN + 20 + 4;
+  char* packet = (char*)malloc(ETHER_HEADER_LEN + 20 + ICMP_HEADER_LEN + 4 + IPHeaderLen + 8);
+  char* packetContent = packet + ETHER_HEADER_LEN + 20 + ICMP_HEADER_LEN;
   memset(packetContent, 0, 4);
   memcpy(packetContent + 4, IPHeader, IPHeaderLen);
   memcpy(packetContent + 4 + IPHeaderLen, IPHeader + IPHeaderLen, 8);
@@ -95,6 +104,49 @@ void ICMPPacketModule_c::handleRouterTableFail(char* IPHeader, int IPHeaderLen, 
   sendPacket(
     0x03, 0x00,
     packetContent, 4 + IPHeaderLen + 8, soureIP
+  );
+}
+
+void ICMPPacketModule_c::handleTTLZeroFail(char* IPHeader, int IPHeaderLen, uint32_t soureIP)
+{
+
+  char* packet = (char*)malloc(ETHER_HEADER_LEN + 20 + ICMP_HEADER_LEN + 4 + IPHeaderLen + 8);
+  char* packetContent = packet + ETHER_HEADER_LEN + 20 + ICMP_HEADER_LEN;
+  memset(packetContent, 0, 4);
+  memcpy(packetContent + 4, IPHeader, IPHeaderLen);
+  memcpy(packetContent + 4 + IPHeaderLen, IPHeader + IPHeaderLen, 8);
+
+  sendPacket(
+    0x0b, 0x00,
+    packetContent, 4 + IPHeaderLen + 8, soureIP
+  );
+}
+
+void ICMPPacketModule_c::handleARPFail(char* IPHeader, int IPHeaderLen, uint32_t soureIP)
+{
+
+  char* packet = (char*)malloc(ETHER_HEADER_LEN + 20 + ICMP_HEADER_LEN + 4 + IPHeaderLen + 8);
+  char* packetContent = packet + ETHER_HEADER_LEN + 20 + ICMP_HEADER_LEN;
+  memset(packetContent, 0, 4);
+  memcpy(packetContent + 4, IPHeader, IPHeaderLen);
+  memcpy(packetContent + 4 + IPHeaderLen, IPHeader + IPHeaderLen, 8);
+
+  sendPacket(
+    0x03, 0x01,
+    packetContent, 4 + IPHeaderLen + 8, soureIP
+  );
+}
+
+void ICMPPacketModule_c::handlePingResp(char* ICMPPacket, int ICMPPacketLen, uint32_t soureIP)
+{
+
+  char* packet = (char*)malloc(ETHER_HEADER_LEN + 20 + ICMP_HEADER_LEN + ICMPPacketLen);
+  char* packetContent = packet + ETHER_HEADER_LEN + 20 + ICMP_HEADER_LEN;
+  memcpy(packetContent, ICMPPacket, ICMPPacketLen);
+
+  sendPacket(
+    0x00, 0x00,
+    packetContent, ICMPPacketLen, soureIP
   );
 }
 

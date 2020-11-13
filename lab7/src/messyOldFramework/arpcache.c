@@ -12,6 +12,9 @@
 
 static arpcache_t arpcache;
 
+#include "../IPPacketModule.h"
+extern IPPacketModule_c* IPPacketModule;
+
 // initialize IP->mac mapping, request list, lock and sweeping thread
 void arpcache_init()
 {
@@ -91,6 +94,7 @@ void *arpcache_sweep(void *arg)
 	while (1) {
 		sleep(1);
 		fprintf(stderr, "TODO: sweep arpcache periodically: remove old entries, resend arp requests .\n");
+		IPPacketModule->sweepARPMissPendingBuff();
 	}
 
 	return NULL;

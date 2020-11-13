@@ -28,6 +28,8 @@ public:
     char* upLayerPacket, int upLayerPacketLen
   );
 
+  void sweepARPMissPendingBuff();
+
   void debug_printCurrentPacketHeader();
   void debug_printIPList();
   void debug_printRouterTable();

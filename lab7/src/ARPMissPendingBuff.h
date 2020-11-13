@@ -23,10 +23,12 @@ struct ARPMissPendingEntry_c {
 class ARPMissPendingBuff_c {
 public:
   void addARPMissPendingBuffEntry(
+    uint32_t nextIP,
     uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
     char* upLayerPacket, int upLayerPacketLen
   );
   std::list<struct ARPMissPendingEntry_c*>* getARPMissPendingList(uint32_t IP);
+  struct ARPMissPendingEntry_c* getTimeoutEntry();
 
   void debug_printARPMissPendingBuff();
 
