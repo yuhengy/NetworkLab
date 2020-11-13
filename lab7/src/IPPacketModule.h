@@ -6,6 +6,7 @@ class ARPPacketModule_c;
 class ICMPPacketModule_c;
 #include "routerTable.h"
 #include "ARPCache.h"
+#include "ARPMissPendingBuff.h"
 #include <stdint.h>
 #include <list>
 #include <endian.h>
@@ -62,13 +63,15 @@ private:
   // sub modules
   routerTable_c routerTable;
   ARPCache_c ARPCache;
+  ARPMissPendingBuff_c ARPMissPendingBuff;
+  
 
 
 
   // handle packet in this layer
   void handleForward();
   void handleARPCacheMiss(
-    uint8_t ttl, uint8_t protocol, uint32_t daddr,
+    uint8_t ttl, uint8_t protocol, uint32_t daddr, uint8_t ihl,
     char* upLayerPacket, int upLayerPacketLen,
     uint32_t nextIP, int ifaceIndex
   );

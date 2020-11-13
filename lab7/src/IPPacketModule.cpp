@@ -86,7 +86,24 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
 void IPPacketModule_c::handleARPPacket(uint32_t IP, uint64_t mac)
 {
   ARPCache.addARPCacheEntry(IP, mac);
-  printf("???????????TODO: release pending IP request\n");
+
+  ARPMissPendingBuff.debug_printARPMissPendingBuff();
+
+  
+  std::list<struct ARPMissPendingEntry_c*>* ARPMissPendingList =
+    ARPMissPendingBuff.getARPMissPendingList(IP);
+
+  if (ARPMissPendingList != NULL) {
+    for (std::list<struct ARPMissPendingEntry_c*>::iterator iter =
+      ARPMissPendingList->begin(); iter != ARPMissPendingList->end(); iter++){
+
+      sendPacket(
+        (*iter)->ttl, (*iter)->protocol, (*iter)->daddr, (*iter)->ihl,
+        (*iter)->upLayerPacket, (*iter)->upLayerPacketLen
+      );
+    }
+  }
+
 }
 
 void IPPacketModule_c::sendPacket(
@@ -120,13 +137,11 @@ void IPPacketModule_c::sendPacket(
   uint64_t targetMac;
   if (!ARPCache.findMac(nextIP, &targetMac)) {
     handleARPCacheMiss(
-      ttl, protocol, daddr, upLayerPacket, upLayerPacketLen,
+      ttl, protocol, daddr, ihl, upLayerPacket, upLayerPacketLen,
       nextIP, ifaceIndex
     );
     return ;
   }
-
-  printf("???????????TODO: look arp cache\n");
 
   *((struct IPHeader_t *)packet) = header;
   endianSwap(((uint8_t*)packet) + 2 , 2);
@@ -168,7 +183,7 @@ void IPPacketModule_c::handleForward()
 
 
 void IPPacketModule_c::handleARPCacheMiss(
-  uint8_t ttl, uint8_t protocol, uint32_t daddr,
+  uint8_t ttl, uint8_t protocol, uint32_t daddr, uint8_t ihl,
   char* upLayerPacket, int upLayerPacketLen,
   uint32_t nextIP, int ifaceIndex
 )
@@ -179,7 +194,10 @@ void IPPacketModule_c::handleARPCacheMiss(
     packet + ETHER_HEADER_LEN + ARP_HEADER_LEN, 0, ifaceIndex
   );
 
-  printf("???????????TODO: pending IP request\n");
+  ARPMissPendingBuff.addARPMissPendingBuffEntry(
+    ttl, protocol, daddr, ihl,
+    upLayerPacket, upLayerPacketLen
+  );
 
 }
 
