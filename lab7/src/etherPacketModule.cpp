@@ -102,6 +102,7 @@ void etherPacketModule_c::sendPacket(
         sizeof(struct sockaddr_ll)) < 0) {
     printf("Error: Send raw packet failed");
   }
+  free(etherPacket);
 }
 
 //--------------------------------------------------------------------

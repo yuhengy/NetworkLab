@@ -2,6 +2,7 @@
 
 #include "endianSwap.h"
 #include "etherPacketModule.h"
+#include "IPPacketModule.h"
 #include <stdio.h>
 
 void ARPPacketModule_c::addIfaceIPToMac(uint32_t ifaceIP, uint64_t ifaceMac)
@@ -12,6 +13,11 @@ void ARPPacketModule_c::addIfaceIPToMac(uint32_t ifaceIP, uint64_t ifaceMac)
 void ARPPacketModule_c::addEtherPacketModule(etherPacketModule_c* _etherPacketModule)
 {
   etherPacketModule = _etherPacketModule;
+}
+
+void ARPPacketModule_c::addIPPacketModule(IPPacketModule_c* _IPPacketModule)
+{
+  IPPacketModule = _IPPacketModule;
 }
 
 //--------------------------------------------------------------------
@@ -42,7 +48,7 @@ void ARPPacketModule_c::handlePacket(char* ARPPacket, int ARPPacketLen, int ifac
     case 0x0001:
       handleReq(ARPPacket, ARPPacketLen, ifaceIndex);  break;
     case 0x0002:
-      handleResp(); break;
+      IPPacketModule->handleARPPacket(header.arp_spa, header.arp_sha); break;
     default:
       printf("ERROR: Unknown ARPPacket type 0x%04x, ingore it.", header.arp_op);
       break;
@@ -50,8 +56,7 @@ void ARPPacketModule_c::handlePacket(char* ARPPacket, int ARPPacketLen, int ifac
 }
 
 void ARPPacketModule_c::sendPacket(
-  uint16_t arp_op,
-  uint64_t arp_sha, uint32_t arp_spa, uint64_t arp_tha, uint32_t arp_tpa,
+  uint16_t arp_op, uint32_t arp_spa, uint64_t arp_tha, uint32_t arp_tpa,
   char* upLayerPacket, int upLayerPacketLen, int _ifaceIndex
 )
 {
@@ -62,7 +67,7 @@ void ARPPacketModule_c::sendPacket(
   header.arp_hln = 0x06;
   header.arp_pln = 0x04;
   header.arp_op  = arp_op;
-  header.arp_sha = arp_sha;
+  header.arp_sha = ifaceIPToMacMap.find(arp_spa)->second;
   header.arp_spa = arp_spa;
   header.arp_tha = arp_tha;
   header.arp_tpa = arp_tpa;
@@ -98,18 +103,12 @@ void ARPPacketModule_c::handleReq(char* ARPPacket, int ARPPacketLen, int ifaceIn
   std::map<uint32_t, uint64_t>::iterator iter = ifaceIPToMacMap.find(header.arp_tpa);
   if(iter != ifaceIPToMacMap.end()) {
     sendPacket(
-      0x0002,
-      iter->second, header.arp_tpa, header.arp_sha, header.arp_spa,
+      0x0002, header.arp_tpa, header.arp_sha, header.arp_spa,
       ARPPacket + sizeof(struct ARPHeader_t),
       ARPPacketLen - sizeof(struct ARPHeader_t),
       ifaceIndex
     );
   }
-}
-
-void ARPPacketModule_c::handleResp()
-{
-
 }
 
 //--------------------------------------------------------------------

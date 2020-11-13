@@ -1,7 +1,10 @@
 #include "IPPacketModule.h"
 
+#include "common.h"
 #include "endianSwap.h"
 #include "checksumBase.h"
+#include "etherPacketModule.h"
+#include "ARPPacketModule.h"
 #include "ICMPPacketModule.h"
 #include <stdio.h>
 #include <algorithm>
@@ -14,6 +17,11 @@ void IPPacketModule_c::addIPAddr(uint32_t IPAddr)
 void IPPacketModule_c::addEtherPacketModule(etherPacketModule_c* _etherPacketModule)
 {
   etherPacketModule = _etherPacketModule;
+}
+
+void IPPacketModule_c::addARPPacketModule(ARPPacketModule_c* _ARPPacketModule)
+{
+  ARPPacketModule = _ARPPacketModule;
 }
 
 void IPPacketModule_c::addICMPPacketModule(ICMPPacketModule_c* _ICMPPacketModule)
@@ -30,9 +38,9 @@ void IPPacketModule_c::addRouterTableEntry(
 
 //--------------------------------------------------------------------
 
-void IPPacketModule_c::handlePacket(char* etherPacket, int etherPacketLen)
+void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
 {
-  header = *((struct IPHeader_t *)etherPacket);
+  header = *((struct IPHeader_t *)IPPacket);
   endianSwap((uint8_t*)&(header.tot_len) , 2);
   endianSwap((uint8_t*)&(header.id)      , 2);
   endianSwap((uint8_t*)&(header.frag_off), 2);
@@ -50,8 +58,6 @@ void IPPacketModule_c::handlePacket(char* etherPacket, int etherPacketLen)
   printf("****************************************************\n");
 
 
-  uint32_t nextIP;
-  int nextIfaceIndex;
 
   std::list<uint32_t>::iterator iter = find(IPList.begin(),IPList.end(),header.daddr);
   if (iter != IPList.end()) {
@@ -64,28 +70,35 @@ void IPPacketModule_c::handlePacket(char* etherPacket, int etherPacketLen)
         break;
     }
   }
-  else if (routerTable.findNextIPIface(header.daddr, &nextIP, &nextIfaceIndex)) {
+  else if (routerTable.hasNextIP(header.daddr)) {
     handleForward();
   }
   else {
+    // TODO: a better structure should solve thiss in `sendPacket`
     ICMPPacketModule->handlePacket(
-      etherPacket + header.ihl * 4, etherPacketLen - header.ihl * 4,
-      etherPacket, header.ihl * 4,
+      IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4, header.saddr,
+      IPPacket, header.ihl * 4,
       0x03, 0x00
     );
   }
 }
 
+void IPPacketModule_c::handleARPPacket(uint32_t IP, uint64_t mac)
+{
+  ARPCache.addARPCacheEntry(IP, mac);
+  printf("???????????TODO: release pending IP request\n");
+}
+
 void IPPacketModule_c::sendPacket(
-  uint8_t ttl, uint8_t protocol, uint32_t daddr,
+  uint8_t ttl, uint8_t protocol, uint32_t daddr, uint8_t ihl,
   char* upLayerPacket, int upLayerPacketLen
 )
 {
-  char* packet     = upLayerPacket    - sizeof(struct IPHeader_t);
-  int packetLen  = upLayerPacketLen + sizeof(struct IPHeader_t);
+  char* packet     = upLayerPacket    - ihl * 4;
+  int packetLen  = upLayerPacketLen + ihl * 4;
 
   header.version  = 0x4;
-  header.ihl      = 0x5;
+  header.ihl      = ihl;
   header.tos      = 0x00;
   header.tot_len  = packetLen;
   header.id       = 0x0000;
@@ -95,9 +108,24 @@ void IPPacketModule_c::sendPacket(
   header.checksum = 0x0000;
   header.daddr    = daddr;
 
+  // STEP1 ask routerTable
+  uint32_t nextIP;
+  int ifaceIndex;
 
-  //header.saddr    = saddr;
-  //uint64_t targetMac = ;
+  if (!routerTable.findNextIP(daddr, &nextIP, &ifaceIndex, &(header.saddr))) {
+    printf("Error: IPModule unable to send this packet\n");
+  }
+
+  // STEP2 ask arpCache
+  uint64_t targetMac;
+  if (!ARPCache.findMac(nextIP, &targetMac)) {
+    handleARPCacheMiss(
+      ttl, protocol, daddr, upLayerPacket, upLayerPacketLen,
+      nextIP, ifaceIndex
+    );
+    return ;
+  }
+
   printf("???????????TODO: look arp cache\n");
 
   *((struct IPHeader_t *)packet) = header;
@@ -109,7 +137,7 @@ void IPPacketModule_c::sendPacket(
 
   header.checksum = checksumBase((uint16_t *)packet, 20, 0);
   ((struct IPHeader_t *)packet)->checksum = header.checksum;
-  endianSwap(((uint8_t*)packet) + 10, 2);
+  //endianSwap(((uint8_t*)packet) + 10, 2);
 
 
 
@@ -123,13 +151,11 @@ void IPPacketModule_c::sendPacket(
   printf("****************************************************\n");
 
 
-
-/*
   etherPacketModule->sendPacket(
     targetMac, 0x0800,
     packet, packetLen, ifaceIndex
   );
-*/
+
 }
 
 
@@ -138,6 +164,23 @@ void IPPacketModule_c::sendPacket(
 void IPPacketModule_c::handleForward()
 {
   printf("???????????TODO: handleForward\n");
+}
+
+
+void IPPacketModule_c::handleARPCacheMiss(
+  uint8_t ttl, uint8_t protocol, uint32_t daddr,
+  char* upLayerPacket, int upLayerPacketLen,
+  uint32_t nextIP, int ifaceIndex
+)
+{
+  char* packet = (char*)malloc(ETHER_HEADER_LEN + ARP_HEADER_LEN);
+  ARPPacketModule->sendPacket(
+    0x0001, header.saddr, 0xffffffffffff, nextIP,
+    packet + ETHER_HEADER_LEN + ARP_HEADER_LEN, 0, ifaceIndex
+  );
+
+  printf("???????????TODO: pending IP request\n");
+
 }
 
 //--------------------------------------------------------------------

@@ -99,11 +99,17 @@ int main(int argc, const char **argv)
 
   initIfaceMacIPConfig();
   initRouterTable();
+
   etherPacketModule->addARPPacketModule(ARPPacketModule);
   etherPacketModule->addIPPacketModule(IPPacketModule);
+
   ARPPacketModule->addEtherPacketModule(etherPacketModule);
+  ARPPacketModule->addIPPacketModule(IPPacketModule);
+
   IPPacketModule->addEtherPacketModule(etherPacketModule);
+  IPPacketModule->addARPPacketModule(ARPPacketModule);
   IPPacketModule->addICMPPacketModule(ICMPPacketModule);
+
   ICMPPacketModule->addIPPacketModule(IPPacketModule);
 
   ustack_run();

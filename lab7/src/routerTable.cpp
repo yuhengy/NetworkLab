@@ -6,7 +6,7 @@ void routerTable_c::addRouterTableEntry(
     uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
   )
 {
-  routerTableEntry_t* routerTableEntry = new routerTableEntry_t;
+  struct routerTableEntry_t* routerTableEntry = new struct routerTableEntry_t;
   routerTableEntry->dest       = dest;
   routerTableEntry->mask       = mask;
   routerTableEntry->gw         = gw;
@@ -15,10 +15,23 @@ void routerTable_c::addRouterTableEntry(
   routerTable.push_back(routerTableEntry);
 }
 
+bool routerTable_c::hasNextIP(uint32_t destIP)
+{
 
+  for (std::list<struct routerTableEntry_t*>::iterator iter =
+    routerTable.begin(); iter != routerTable.end(); iter++){
 
-bool routerTable_c::findNextIPIface(
-  uint32_t destIP, uint32_t* nextIP, int* nextIfaceIndex
+    if ((destIP & (*iter)->mask) == ((*iter)->dest & (*iter)->mask)) {
+      return true;
+    }
+  }
+
+  return false;
+
+}
+
+bool routerTable_c::findNextIP(
+  uint32_t destIP, uint32_t* nextIP, int* ifaceIndex, uint32_t* ifaceIP
 )
 {
   struct routerTableEntry_t* maxMatchRouterTableEntry;
@@ -42,7 +55,8 @@ bool routerTable_c::findNextIPIface(
     else {
       *nextIP = destIP;
     }
-    *nextIfaceIndex = maxMatchRouterTableEntry->ifaceIndex;
+    *ifaceIndex = maxMatchRouterTableEntry->ifaceIndex;
+    *ifaceIP    = maxMatchRouterTableEntry->ifaceIP;
     return true;
   }
   else {

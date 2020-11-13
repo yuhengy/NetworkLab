@@ -9,13 +9,13 @@ public:
   void addIPPacketModule(IPPacketModule_c* _IPPacketModule);
 
   void handlePacket(
-    char* ICMPPacket, int ICMPPacketLen,
+    char* ICMPPacket, int ICMPPacketLen, uint32_t soureIP,
     char* IPHeader, int IPHeaderLen,
     uint8_t type, uint8_t code
   );
   void sendPacket(
     uint8_t type, uint8_t code,
-    char* upLayerPacket, int upLayerPacketLen
+    char* upLayerPacket, int upLayerPacketLen, uint32_t targetIP
   );
 
   void debug_printCurrentPacketHeader();
@@ -41,7 +41,7 @@ private:
   } header;
 
   // handle packet in this layer
-  void handleRouterTableFail(char* IPHeader, int IPHeaderLen);
+  void handleRouterTableFail(char* IPHeader, int IPHeaderLen, uint32_t soureIP);
 
 
 };

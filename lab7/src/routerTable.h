@@ -11,8 +11,9 @@ public:
   void addRouterTableEntry(
     uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
   );
-  bool findNextIPIface(
-    uint32_t destIP, uint32_t* nextIP, int* nextIfaceIndex
+  bool hasNextIP(uint32_t destIP);
+  bool findNextIP(
+    uint32_t destIP, uint32_t* nextIP, int* ifaceIndex, uint32_t* ifaceIP
   );
 
   void debug_printRouterTable();

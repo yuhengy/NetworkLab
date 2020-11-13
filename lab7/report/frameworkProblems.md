@@ -30,7 +30,34 @@ Summary these problems are really out of students' responsibility, considering t
 + naming: in `list.h`, please not use name `new`, which is uncompatible with C++.
 + consistent: mac addr should also be store as uint instead of char[]. So that, all ip, mask, mac, ttl, etc. should change endian. 
 + bad abstraction: at the top of IP/ARP, I add a virtual application layer to decide what packet IP/ARP will send. This virtual application can keep IP/ARP holding a interface to upper layer, which is a good abstraction of them.
++ bug: in `packet.c`, will `free(packet)` work?
++ bad abstraction: it is important to figure out the job of each layer, both when transfer information up, and when diliver command down. 
+When going up, one layer will 
+  + input:
+    1. packet of this layer.
+    2. decoded header information of lower layer.
+  + work on:
+    1. decode the packet of this layer.
+    2. based on input2, decide whether handle the packet at this layer.
+  + output:
+    1. packet of next layer.
+    2. decoded header information of this layer.
+What means a good network architecture? the decoded header information should not be carried accross too many layers. In other words, upper layer should not make handling decision based on too lower layer data.
+When going down, one layer will
+  + input:
+    1. packet of upper layer.
+    2. command from upper layer to create this layer header.
+  + work on:
+    1. create this layer header from input2.
+  + output:
+    1. packet of this layer.
+    2. command for lower layer to create their header.
+  Good network architecture means command from upper layer will not be carried to too lower layer. In other works, upper layer should not provide detailed commands for too lower layer.
 
 
 ## good part
 + less copy: all modules handle the packet pointing to the same memory.
+
+## my framework
++ consistent: if a packet should be uploaded, handlePacket will upload packet to upper layer directly. Otherwise, it will call another handler.
+

@@ -2,6 +2,7 @@
 #define __ARPPACKETMODULE_H__
 
 class etherPacketModule_c;
+class IPPacketModule_c;
 #include <stdint.h>
 #include <map>
 
@@ -9,11 +10,11 @@ class ARPPacketModule_c {
 public:
   void addIfaceIPToMac(uint32_t ifaceIP, uint64_t ifaceMac);
   void addEtherPacketModule(etherPacketModule_c* _etherPacketModule);
+  void addIPPacketModule(IPPacketModule_c* _IPPacketModule);
 
   void handlePacket(char* ARPPacket, int ARPPacketLen, int _ifaceIndex);
   void sendPacket(
-    uint16_t arp_op,
-    uint64_t arp_sha, uint32_t arp_spa, uint64_t arp_tha, uint32_t arp_tpa,
+    uint16_t arp_op, uint32_t arp_spa, uint64_t arp_tha, uint32_t arp_tpa,
     char* upLayerPacket, int upLayerPacketLen, int _ifaceIndex
   );
 
@@ -25,6 +26,7 @@ private:
   // configuration
   std::map<uint32_t, uint64_t> ifaceIPToMacMap;
   etherPacketModule_c* etherPacketModule;
+  IPPacketModule_c* IPPacketModule;
 
   // header
   struct __attribute__ ((packed)) ARPHeader_t {
@@ -41,7 +43,6 @@ private:
 
   // handle packet in this layer
   void handleReq(char* ARPPacket, int ARPPacketLen, int ifaceIndex);
-  void handleResp();
 
 };
 

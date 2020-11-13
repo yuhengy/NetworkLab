@@ -2,8 +2,10 @@
 #define __IPPACKETMODULE_H__
 
 class etherPacketModule_c;
+class ARPPacketModule_c;
 class ICMPPacketModule_c;
 #include "routerTable.h"
+#include "ARPCache.h"
 #include <stdint.h>
 #include <list>
 #include <endian.h>
@@ -12,14 +14,16 @@ class IPPacketModule_c {
 public:
   void addIPAddr(uint32_t IPAddr);
   void addEtherPacketModule(etherPacketModule_c* _etherPacketModule);
+  void addARPPacketModule(ARPPacketModule_c* _ARPPacketModule);
   void addICMPPacketModule(ICMPPacketModule_c* _ICMPPacketModule);
   void addRouterTableEntry(
     uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
   );
 
-  void handlePacket(char* etherPacket, int etherPacketLen);
+  void handlePacket(char* IPPacket, int IPPacketLen);
+  void handleARPPacket(uint32_t IP, uint64_t mac);
   void sendPacket(
-    uint8_t ttl, uint8_t protocol, uint32_t daddr,
+    uint8_t ttl, uint8_t protocol, uint32_t daddr, uint8_t ihl,
     char* upLayerPacket, int upLayerPacketLen
   );
 
@@ -32,6 +36,7 @@ private:
   // configuration
   std::list<uint32_t> IPList;
   etherPacketModule_c* etherPacketModule;
+  ARPPacketModule_c* ARPPacketModule;
   ICMPPacketModule_c* ICMPPacketModule;
 
   // header
@@ -54,13 +59,19 @@ private:
     uint32_t daddr;
   } header;
 
-  // router table
+  // sub modules
   routerTable_c routerTable;
+  ARPCache_c ARPCache;
 
 
 
   // handle packet in this layer
   void handleForward();
+  void handleARPCacheMiss(
+    uint8_t ttl, uint8_t protocol, uint32_t daddr,
+    char* upLayerPacket, int upLayerPacketLen,
+    uint32_t nextIP, int ifaceIndex
+  );
 
 
 };
