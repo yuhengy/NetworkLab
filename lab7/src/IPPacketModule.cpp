@@ -71,7 +71,7 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
     }
   }
   else if (routerTable.hasNextIP(header.daddr)) {
-    handleForward();
+    handleForward(IPPacket, IPPacketLen);
   }
   else {
     // TODO: a better structure should solve thiss in `sendPacket`
@@ -98,7 +98,7 @@ void IPPacketModule_c::handleARPPacket(uint32_t IP, uint64_t mac)
       ARPMissPendingList->begin(); iter != ARPMissPendingList->end(); iter++){
 
       sendPacket(
-        (*iter)->ttl, (*iter)->protocol, (*iter)->daddr, (*iter)->ihl,
+        (*iter)->ttl, (*iter)->protocol, (*iter)->saddr, (*iter)->daddr, (*iter)->ihl,
         (*iter)->upLayerPacket, (*iter)->upLayerPacketLen
       );
     }
@@ -107,13 +107,14 @@ void IPPacketModule_c::handleARPPacket(uint32_t IP, uint64_t mac)
 }
 
 void IPPacketModule_c::sendPacket(
-  uint8_t ttl, uint8_t protocol, uint32_t daddr, uint8_t ihl,
+  uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
   char* upLayerPacket, int upLayerPacketLen
 )
 {
   char* packet     = upLayerPacket    - ihl * 4;
   int packetLen  = upLayerPacketLen + ihl * 4;
 
+  // TODO: use a new struct to fill
   header.version  = 0x4;
   header.ihl      = ihl;
   header.tos      = 0x00;
@@ -128,16 +129,25 @@ void IPPacketModule_c::sendPacket(
   // STEP1 ask routerTable
   uint32_t nextIP;
   int ifaceIndex;
+  uint32_t ifaceIP;
 
-  if (!routerTable.findNextIP(daddr, &nextIP, &ifaceIndex, &(header.saddr))) {
+  if (!routerTable.findNextIP(daddr, &nextIP, &ifaceIndex, &ifaceIP)) {
     printf("Error: IPModule unable to send this packet\n");
+  }
+
+  // TODO: a little messy
+  if (saddr == 0) {
+    header.saddr = ifaceIP;
+  }
+  else {
+    header.saddr = saddr;
   }
 
   // STEP2 ask arpCache
   uint64_t targetMac;
   if (!ARPCache.findMac(nextIP, &targetMac)) {
     handleARPCacheMiss(
-      ttl, protocol, daddr, ihl, upLayerPacket, upLayerPacketLen,
+      ttl, protocol, saddr, daddr, ihl, upLayerPacket, upLayerPacketLen,
       nextIP, ifaceIndex
     );
     return ;
@@ -176,14 +186,20 @@ void IPPacketModule_c::sendPacket(
 
 //--------------------------------------------------------------------
 
-void IPPacketModule_c::handleForward()
+void IPPacketModule_c::handleForward(char* IPPacket, int IPPacketLen)
 {
   printf("???????????TODO: handleForward\n");
+
+  printf("???????????IP1: %08x\n", header.saddr);
+  sendPacket(
+    header.ttl - 1, header.protocol, header.saddr, header.daddr, header.ihl,
+    IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4
+  );
 }
 
 
 void IPPacketModule_c::handleARPCacheMiss(
-  uint8_t ttl, uint8_t protocol, uint32_t daddr, uint8_t ihl,
+  uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
   char* upLayerPacket, int upLayerPacketLen,
   uint32_t nextIP, int ifaceIndex
 )
@@ -195,7 +211,7 @@ void IPPacketModule_c::handleARPCacheMiss(
   );
 
   ARPMissPendingBuff.addARPMissPendingBuffEntry(
-    ttl, protocol, daddr, ihl,
+    ttl, protocol, saddr, daddr, ihl,
     upLayerPacket, upLayerPacketLen
   );
 

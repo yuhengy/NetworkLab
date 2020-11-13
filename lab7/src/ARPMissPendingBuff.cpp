@@ -3,13 +3,14 @@
 #include <stdio.h>
 
 void ARPMissPendingBuff_c::addARPMissPendingBuffEntry(
-    uint8_t ttl, uint8_t protocol, uint32_t daddr, uint8_t ihl,
+    uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
     char* upLayerPacket, int upLayerPacketLen
   )
 {
   struct ARPMissPendingEntry_c* ARPMissPendingEntry = new struct ARPMissPendingEntry_c;
   ARPMissPendingEntry->ttl = ttl;
   ARPMissPendingEntry->protocol = protocol;
+  ARPMissPendingEntry->saddr = saddr;
   ARPMissPendingEntry->daddr = daddr;
   ARPMissPendingEntry->ihl = ihl;
   ARPMissPendingEntry->upLayerPacket = upLayerPacket;
@@ -48,6 +49,7 @@ void ARPMissPendingBuff_c::debug_printARPMissPendingBuff()
 
       printf("ttl:              0x%02x\n", (*iter2)->ttl);
       printf("protocol:         0x%02x\n", (*iter2)->protocol);
+      printf("saddr:            0x%08x\n", (*iter2)->saddr);
       printf("daddr:            0x%08x\n", (*iter2)->daddr);
       printf("ihl:              0x%02x\n", (*iter2)->ihl);
       printf("upLayerPacket:    0x%x\n"  , (*iter2)->upLayerPacket);

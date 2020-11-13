@@ -24,7 +24,7 @@ public:
   void handlePacket(char* IPPacket, int IPPacketLen);
   void handleARPPacket(uint32_t IP, uint64_t mac);
   void sendPacket(
-    uint8_t ttl, uint8_t protocol, uint32_t daddr, uint8_t ihl,
+    uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
     char* upLayerPacket, int upLayerPacketLen
   );
 
@@ -69,9 +69,9 @@ private:
 
 
   // handle packet in this layer
-  void handleForward();
+  void handleForward(char* IPPacket, int IPPacketLen);
   void handleARPCacheMiss(
-    uint8_t ttl, uint8_t protocol, uint32_t daddr, uint8_t ihl,
+    uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
     char* upLayerPacket, int upLayerPacketLen,
     uint32_t nextIP, int ifaceIndex
   );

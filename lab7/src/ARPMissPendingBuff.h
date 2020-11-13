@@ -12,6 +12,7 @@
 struct ARPMissPendingEntry_c {
   uint8_t  ttl;
   uint8_t  protocol;
+  uint32_t saddr;
   uint32_t daddr;
   uint8_t  ihl;
   char*    upLayerPacket;
@@ -22,7 +23,7 @@ struct ARPMissPendingEntry_c {
 class ARPMissPendingBuff_c {
 public:
   void addARPMissPendingBuffEntry(
-    uint8_t ttl, uint8_t protocol, uint32_t daddr, uint8_t ihl,
+    uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
     char* upLayerPacket, int upLayerPacketLen
   );
   std::list<struct ARPMissPendingEntry_c*>* getARPMissPendingList(uint32_t IP);

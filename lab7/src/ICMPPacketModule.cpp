@@ -74,7 +74,7 @@ void ICMPPacketModule_c::sendPacket(
 
 
   IPPacketModule->sendPacket(
-    TTL_INIT, 0x1, targetIP, 0x5,
+    TTL_INIT, 0x1, 0x00000000, targetIP, 0x5,
     packet, packetLen
   );
 
