@@ -26,7 +26,7 @@ private:
   IPPacketModule_c* IPPacketModule;
   
   // information from IP
-  // different from 'packet information', these information
+  // these information
   // will no be used to call IPPacketModule directly
   char *IPHeaderfromIP;
   int IPHeaderLenfromIP;

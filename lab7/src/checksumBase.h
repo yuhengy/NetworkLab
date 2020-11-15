@@ -5,6 +5,8 @@
 
 // calculate the checksum of the given buf, providing sum 
 // as the initial value
+
+// Base in the name is only to avoid same name in old framework
 static inline uint16_t checksumBase(uint16_t *ptr, int nbytes, uint32_t sum)
 {
 	if (nbytes % 2) {

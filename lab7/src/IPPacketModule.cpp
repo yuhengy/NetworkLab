@@ -206,7 +206,8 @@ void IPPacketModule_c::handleForward(char* IPPacket, int IPPacketLen)
   );
 }
 
-
+// TODO: this should not be a handle* private function
+// move this into sendPacket for code structure consistence
 void IPPacketModule_c::handleARPCacheMiss(
   uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
   char* upLayerPacket, int upLayerPacketLen,
