@@ -45,7 +45,7 @@ def reproduce_bufferbloat(net, duration=60):
 
     stop_cwnd_monitor(cmon)
     stop_qlen_monitor(qmon)
-    stop_rtt_monitor(rmon)
+    stop_rtt_monitor(rmon, dname, '%s/rtt.txt' % (dname))
 
     stop_iperf()
 

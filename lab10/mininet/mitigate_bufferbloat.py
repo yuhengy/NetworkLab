@@ -36,7 +36,7 @@ def mitigate_bufferbloat(net, duration=60):
 
     dynamic_bw(net, duration)
 
-    stop_rtt_monitor(rmon)
+    stop_rtt_monitor(rmon, dname, '%s/rtt.txt' % (dname))
     stop_iperf()
 
 if __name__ == '__main__':

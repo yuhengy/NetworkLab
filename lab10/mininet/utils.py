@@ -70,15 +70,10 @@ def stop_qlen_monitor(monitor):
 
 def rtt_monitor(net, fname):
     h1, h2 = net.get('h1', 'h2')
-    cmd = 'ping -c 1 %s | grep ttl' % (h2.IP())
-    with open(fname, 'w') as ofile:
-        while 1:
-            t = time()
-            p = h1.popen(cmd, shell=True, stdout=PIPE)
-            output = p.stdout.read()
-            if output != '':
-                ofile.write('%f, %s' % (t, output))
-            sleep(0.1)
+    while 1:
+        t = time()
+        p = h1.cmd('ping -c 1 %s | grep ttl 2>&1 >> %s &' % (h2.IP(), fname + "." + str(t) + ".tmp"))
+        sleep(0.1)
 
 def start_rtt_monitor(net, fname):
     print 'Start rtt monitor ...'
@@ -86,9 +81,16 @@ def start_rtt_monitor(net, fname):
     monitor.start()
     return monitor
 
-def stop_rtt_monitor(monitor):
+def stop_rtt_monitor(monitor, dname, fname):
+    tempFilename_all = os.popen("ls %s" % dname).read().split()[2:]
+    with open(fname, 'w') as ofile:
+        for tempFilename in tempFilename_all:
+            time = tempFilename.split('.')[2] + '.' + tempFilename.split('.')[3]
+            content = os.popen("cat %s" % (dname + '/' + tempFilename)).read()
+            ofile.write('%s, %s\n' % (time, content))
     print 'Stop rtt monitor ...'
     monitor.terminate()
+    os.popen("rm -f %s/*.tmp" % dname)
 
 def start_iperf(net, duration):
     h1, h2 = net.get('h1', 'h2')
