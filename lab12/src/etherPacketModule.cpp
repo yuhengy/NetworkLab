@@ -8,6 +8,8 @@
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
 
+//#define PRINT_PACKET
+
 void etherPacketModule_c::addIface(int index, iface_c* iface)
 {
   ifaceMap[index] = iface;
@@ -33,7 +35,7 @@ void etherPacketModule_c::handlePacket(char* etherPacket, int etherPacketLen, in
   endianSwap((uint8_t*)&(header.ether_type) , 2);
 
 
-
+#ifdef PRINT_PACKET
   printf("\n\n");
   printf("******************************************************\n");
   printf("****etherPacketModule_c::handleCurrentPacket start****\n");
@@ -42,6 +44,7 @@ void etherPacketModule_c::handlePacket(char* etherPacket, int etherPacketLen, in
   printf("****************************************************\n");
   printf("****etherPacketModule_c::handleCurrentPacket end****\n");
   printf("****************************************************\n");
+#endif
 
   switch (header.ether_type) {
     case 0x0800:
@@ -81,6 +84,7 @@ void etherPacketModule_c::sendPacket(
 
 
 
+#ifdef PRINT_PACKET
   printf("\n\n");
   printf("******************************************************\n");
   printf("*********etherPacketModule_c::sendPacket start********\n");
@@ -89,6 +93,7 @@ void etherPacketModule_c::sendPacket(
   printf("****************************************************\n");
   printf("*********etherPacketModule_c::sendPacket end********\n");
   printf("****************************************************\n");
+#endif
 
   struct sockaddr_ll addr;
   memset(&addr, 0, sizeof(struct sockaddr_ll));

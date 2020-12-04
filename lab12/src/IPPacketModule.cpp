@@ -6,12 +6,17 @@
 #include "etherPacketModule.h"
 #include "ARPPacketModule.h"
 #include "ICMPPacketModule.h"
+#include "MOSPFPacketModule.h"
 #include <stdio.h>
-#include <algorithm>
 
-void IPPacketModule_c::addIPAddr(uint32_t IPAddr)
+#define PRINT_PACKET
+
+#define NEIGHBOUR_BROARDCAST_IP 0xe0000005  // 224.0.0.5
+#define NEIGHBOUR_BROARDCAST_MAC 0x01005e000005  //01:00:5E:00:00:05
+
+void IPPacketModule_c::addIPToIfaceIndexMap(uint32_t IPAddr, int ifaceIndex)
 {
-  IPList.push_back(IPAddr);
+  IPToIfaceIndexMap[IPAddr] = ifaceIndex;
 }
 
 void IPPacketModule_c::addEtherPacketModule(etherPacketModule_c* _etherPacketModule)
@@ -27,6 +32,11 @@ void IPPacketModule_c::addARPPacketModule(ARPPacketModule_c* _ARPPacketModule)
 void IPPacketModule_c::addICMPPacketModule(ICMPPacketModule_c* _ICMPPacketModule)
 {
   ICMPPacketModule = _ICMPPacketModule;
+}
+
+void IPPacketModule_c::addMOSPFPacketModule(MOSPFPacketModule_c* _MOSPFPacketModule)
+{
+  MOSPFPacketModule = _MOSPFPacketModule;
 }
 
 void IPPacketModule_c::addRouterTableEntry(
@@ -49,6 +59,7 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
   endianSwap((uint8_t*)&(header.daddr)   , 4);
 
 
+#ifdef PRINT_PACKET
   printf("******************************************************\n");
   printf("******IPPacketModule_c::handleCurrentPacket start*****\n");
   printf("******************************************************\n");
@@ -56,10 +67,10 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
   printf("****************************************************\n");
   printf("******IPPacketModule_c::handleCurrentPacket end*****\n");
   printf("****************************************************\n");
+#endif
 
 
-
-  std::list<uint32_t>::iterator iter = find(IPList.begin(),IPList.end(),header.daddr);
+  std::map<uint32_t, int>::iterator iter = IPToIfaceIndexMap.find(header.daddr);
 
   if (header.ttl == 1) {
     ICMPPacketModule->handlePacket(
@@ -68,7 +79,14 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
       0x0b, 0x00
     );
   }
-  else if (iter != IPList.end()) {
+  
+  else if (header.daddr == NEIGHBOUR_BROARDCAST_IP) {
+    MOSPFPacketModule->handlePacket(
+      IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4
+    );
+  }
+  
+  else if (iter != IPToIfaceIndexMap.end()) {
     switch (header.protocol) {
       case 0x01:
         ICMPPacketModule->handlePacket(
@@ -82,9 +100,11 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
         break;
     }
   }
+  
   else if (routerTable.hasNextIP(header.daddr)) {
     handleForward(IPPacket, IPPacketLen);
   }
+  
   else {
     // TODO: a better structure should solve thiss in `sendPacket`
     ICMPPacketModule->handlePacket(
@@ -138,32 +158,22 @@ void IPPacketModule_c::sendPacket(
   header.checksum = 0x0000;
   header.daddr    = daddr;
 
-  // STEP1 ask routerTable
-  uint32_t nextIP;
+
   int ifaceIndex;
-  uint32_t ifaceIP;
+  uint64_t targetMac;
 
-  if (!routerTable.findNextIP(daddr, &nextIP, &ifaceIndex, &ifaceIP)) {
-    printf("Error: IPModule unable to send this packet\n");
-  }
-
-  // TODO: a little messy
-  if (saddr == 0) {
-    header.saddr = ifaceIP;
+  if (daddr == NEIGHBOUR_BROARDCAST_IP) {
+  findNeighbourBroadcastIPMacIface(saddr, &ifaceIndex, &targetMac);
   }
   else {
-    header.saddr = saddr;
+    bool succeed = findNormalIPMacIface(
+      ttl, protocol, saddr, daddr, ihl,
+      upLayerPacket, upLayerPacketLen,
+      &ifaceIndex, &targetMac  // this two output
+    );
+    if (!succeed) return;
   }
 
-  // STEP2 ask arpCache
-  uint64_t targetMac;
-  if (!ARPCache.findMac(nextIP, &targetMac)) {
-    handleARPCacheMiss(
-      ttl, protocol, saddr, daddr, ihl, upLayerPacket, upLayerPacketLen,
-      nextIP, ifaceIndex
-    );
-    return ;
-  }
 
   *((struct IPHeader_t *)packet) = header;
   endianSwap(((uint8_t*)packet) + 2 , 2);
@@ -178,6 +188,7 @@ void IPPacketModule_c::sendPacket(
 
 
 
+#ifdef PRINT_PACKET
   printf("\n\n");
   printf("******************************************************\n");
   printf("**********IPPacketModule_c::sendPacket start**********\n");
@@ -186,7 +197,7 @@ void IPPacketModule_c::sendPacket(
   printf("****************************************************\n");
   printf("**********IPPacketModule_c::sendPacket end**********\n");
   printf("****************************************************\n");
-
+#endif
 
   etherPacketModule->sendPacket(
     targetMac, 0x0800,
@@ -230,6 +241,57 @@ void IPPacketModule_c::handleARPCacheMiss(
 
 //--------------------------------------------------------------------
 
+bool IPPacketModule_c::findNormalIPMacIface(
+  uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
+  char* upLayerPacket, int upLayerPacketLen,
+  int* ifaceIndex, uint64_t* targetMac  // this two output
+)
+{
+  // STEP1 ask routerTable
+  uint32_t nextIP;
+  uint32_t ifaceIP;
+
+  if (!routerTable.findNextIP(daddr, &nextIP, ifaceIndex, &ifaceIP)) {
+    printf("Error: IPModule unable to send this packet\n");
+  }
+
+  // TODO: a little messy
+  if (saddr == 0) {
+    header.saddr = ifaceIP;
+  }
+  else {
+    header.saddr = saddr;
+  }
+
+  // STEP2 ask arpCache
+  if (!ARPCache.findMac(nextIP, targetMac)) {
+    handleARPCacheMiss(
+      ttl, protocol, saddr, daddr, ihl, upLayerPacket, upLayerPacketLen,
+      nextIP, *ifaceIndex
+    );
+    return false;
+  }
+
+  return true;
+}
+
+
+void IPPacketModule_c::findNeighbourBroadcastIPMacIface(
+  uint32_t saddr, int* ifaceIndex, uint64_t* targetMac
+)
+{
+  header.saddr = saddr;
+  std::map<uint32_t, int>::iterator iter = IPToIfaceIndexMap.find(saddr);
+  if (iter == IPToIfaceIndexMap.end()) {
+    printf("Error: IP is asked to broadcast from unknow source IP\n");
+  }
+  *ifaceIndex = iter->second;
+  *targetMac = NEIGHBOUR_BROARDCAST_MAC;
+}
+
+
+//--------------------------------------------------------------------
+
 // TODO this funciton is very bad
 void IPPacketModule_c::sweepARPMissPendingBuff()
 {
@@ -264,15 +326,14 @@ void IPPacketModule_c::debug_printCurrentPacketHeader()
   printf("^^^^^^^^^^^^^^^IP Packet end^^^^^^^^^^^^^^^\n");
 }
 
-void IPPacketModule_c::debug_printIPList()
+void IPPacketModule_c::debug_printIPToIfaceIndexMap()
 {
-  printf("---------------IP IPList start---------------\n");
-  for (std::list<uint32_t>::iterator iter =
-    IPList.begin(); iter != IPList.end(); iter++){
-
-    printf("IPAddr: 0x%08x\n", *iter);
+  printf("---------------IP IPToIfaceIndexMap start---------------\n");
+  for (std::map<uint32_t, int>::iterator iter = IPToIfaceIndexMap.begin();
+    iter != IPToIfaceIndexMap.end(); iter++){
+    printf("IP: 0x%08x --> ifaceIndex: 0x%d\n", iter->first, iter->second);
   }
-  printf("^^^^^^^^^^^^^^^IP IPList end^^^^^^^^^^^^^^^\n");
+  printf("^^^^^^^^^^^^^^^IP IPToIfaceIndexMap end^^^^^^^^^^^^^^^\n");
 }
 
 

@@ -83,8 +83,8 @@ void ARPMissPendingBuff_c::debug_printARPMissPendingBuff()
       printf("saddr:            0x%08x\n", (*iter2)->saddr);
       printf("daddr:            0x%08x\n", (*iter2)->daddr);
       printf("ihl:              0x%02x\n", (*iter2)->ihl);
-      printf("upLayerPacket:    0x%x\n"  , (*iter2)->upLayerPacket);
-      printf("upLayerPacketLen: %ld\n"   , (*iter2)->upLayerPacketLen);
+      printf("upLayerPacket:    0x%p\n"  , (*iter2)->upLayerPacket);
+      printf("upLayerPacketLen: %d\n"    , (*iter2)->upLayerPacketLen);
       printf("addedTime:        %ld\n"   , (*iter2)->addedTime);
     }
   }

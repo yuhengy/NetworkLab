@@ -86,13 +86,14 @@ if __name__ == '__main__':
 
     net.start()
     for index, r in enumerate((r1, r2, r3, r4)):
-        r.cmd('stdbuf -oL -eL ./build/mospfd-reference > result/STEP1-r%d.txt 2>&1 &' % (index+1))
+        #r.cmd('stdbuf -oL -eL ./build/mospfd-reference > result-reference/STEP1-r%d.txt 2>&1 &' % (index+1))
+        r.cmd('stdbuf -oL -eL ./build/mospfd > result/STEP1-r%d.txt 2>&1 &' % (index+1))
     
     time.sleep(40)
-    h1.cmd("traceroute 10.0.6.22 > result/STEP2-firstPing.txt 2>&1")
+    #h1.cmd("traceroute 10.0.6.22 > result/STEP2-firstPing.txt 2>&1")
 
-    net.configLinkStatus("r2", "r4", "down")
+    #net.configLinkStatus("r2", "r4", "down")
 
-    time.sleep(30)
-    h1.cmd("traceroute 10.0.6.22 > result/STEP2-secondPing.txt 2>&1")
+    #time.sleep(30)
+    #h1.cmd("traceroute 10.0.6.22 > result/STEP2-secondPing.txt 2>&1")
     net.stop()

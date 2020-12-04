@@ -4,19 +4,21 @@
 class etherPacketModule_c;
 class ARPPacketModule_c;
 class ICMPPacketModule_c;
+class MOSPFPacketModule_c;
 #include "routerTable.h"
 #include "ARPCache.h"
 #include "ARPMissPendingBuff.h"
 #include <stdint.h>
-#include <list>
+#include <map>
 #include <endian.h>
 
 class IPPacketModule_c {
 public:
-  void addIPAddr(uint32_t IPAddr);
+  void addIPToIfaceIndexMap(uint32_t IPAddr, int ifaceIndex);
   void addEtherPacketModule(etherPacketModule_c* _etherPacketModule);
   void addARPPacketModule(ARPPacketModule_c* _ARPPacketModule);
   void addICMPPacketModule(ICMPPacketModule_c* _ICMPPacketModule);
+  void addMOSPFPacketModule(MOSPFPacketModule_c* _MOSPFPacketModule);
   void addRouterTableEntry(
     uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
   );
@@ -31,16 +33,17 @@ public:
   void sweepARPMissPendingBuff();
 
   void debug_printCurrentPacketHeader();
-  void debug_printIPList();
+  void debug_printIPToIfaceIndexMap();
   void debug_printRouterTable();
 
 
 private:
   // configuration
-  std::list<uint32_t> IPList;
+  std::map<uint32_t, int> IPToIfaceIndexMap;
   etherPacketModule_c* etherPacketModule;
   ARPPacketModule_c* ARPPacketModule;
   ICMPPacketModule_c* ICMPPacketModule;
+  MOSPFPacketModule_c* MOSPFPacketModule;
 
   // header
   struct __attribute__ ((packed)) IPHeader_t {  //TODO header length can change
@@ -76,6 +79,16 @@ private:
     uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
     char* upLayerPacket, int upLayerPacketLen,
     uint32_t nextIP, int ifaceIndex
+  );
+
+  // different methods to send packet
+  bool findNormalIPMacIface(
+    uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
+    char* upLayerPacket, int upLayerPacketLen,
+    int* ifaceIndex, uint64_t* targetMac  // this two output
+  );
+  void findNeighbourBroadcastIPMacIface(
+    uint32_t saddr, int* ifaceIndex, uint64_t* targetMac
   );
 
 

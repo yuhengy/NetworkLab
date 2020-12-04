@@ -2,6 +2,7 @@
 #include "ARPPacketModule.h"
 #include "IPPacketModule.h"
 #include "ICMPPacketModule.h"
+#include "MOSPFPacketModule.h"
 #include "iface.h"
 #include "endianSwap.h"
 #include "messyOldFramework/ether.h"
@@ -25,6 +26,7 @@ etherPacketModule_c* etherPacketModule;
 ARPPacketModule_c*   ARPPacketModule;
 IPPacketModule_c*    IPPacketModule;
 ICMPPacketModule_c*  ICMPPacketModule;
+MOSPFPacketModule_c* MOSPFPacketModule;
 
 
 
@@ -50,7 +52,12 @@ void initIfaceMacIPConfig()
     etherPacketModule->addIface(iface->index, 
       new iface_c(iface->fd, iface->index, mac, iface->ip, iface->mask, iface->name, iface->ip_str));
     ARPPacketModule->addIfaceIPToMac(iface->ip, mac);
-    IPPacketModule->addIPAddr(iface->ip);
+    IPPacketModule->addIPToIfaceIndexMap(iface->ip, iface->index);
+
+    if (iface->mask != 0xffffff00) {
+      printf("Error: MOSPF does not support mask != 0xffffff00\n");
+    }
+    MOSPFPacketModule->addIPAddr(iface->ip);
   }
 
   printf("\n\n");
@@ -59,7 +66,8 @@ void initIfaceMacIPConfig()
   printf("**********************************************\n");
   etherPacketModule->debug_printIfaceMap();
   ARPPacketModule->debug_printMacList();
-  IPPacketModule->debug_printIPList();
+  IPPacketModule->debug_printIPToIfaceIndexMap();
+  MOSPFPacketModule->debug_printIPList();
   printf("********************************************\n");
   printf("*********init initNetworkConfig end*********\n");
   printf("********************************************\n");
@@ -96,6 +104,7 @@ int main(int argc, const char **argv)
   ARPPacketModule   = new ARPPacketModule_c();
   IPPacketModule    = new IPPacketModule_c();
   ICMPPacketModule  = new ICMPPacketModule_c();
+  MOSPFPacketModule = new MOSPFPacketModule_c();
 
   initIfaceMacIPConfig();
   initRouterTable();
@@ -109,8 +118,15 @@ int main(int argc, const char **argv)
   IPPacketModule->addEtherPacketModule(etherPacketModule);
   IPPacketModule->addARPPacketModule(ARPPacketModule);
   IPPacketModule->addICMPPacketModule(ICMPPacketModule);
+  IPPacketModule->addMOSPFPacketModule(MOSPFPacketModule);
 
   ICMPPacketModule->addIPPacketModule(IPPacketModule);
+
+  MOSPFPacketModule->addIPPacketModule(IPPacketModule);
+
+
+  MOSPFPacketModule->startSubthread();
+
 
   ustack_run();
 
