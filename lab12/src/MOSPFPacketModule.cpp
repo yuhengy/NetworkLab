@@ -13,9 +13,10 @@
 #define MOSPF_TYPE_LSU 4
 
 #define MOSPF_HELLOINT    1 // 5 seconds
+#define MOSPF_NEIGHBOUR_TIMEOUT    3 // 15 seconds
 #define MOSPF_LSUINT    5  // 30 seconds
-#define MOSPF_DATABASE_TIMEOUT    40  // 40 seconds
-#define LSU_TTL_INIT 3
+#define MOSPF_DATABASE_TIMEOUT    10  // 40 seconds
+#define LSU_TTL_INIT 2
 
 void MOSPFPacketModule_c::addIPAddr(uint32_t IPAddr)
 {
@@ -33,6 +34,8 @@ void MOSPFPacketModule_c::startSubthread()
 {
   hello = std::thread(&MOSPFPacketModule_c::sendHelloThread, this);
   LSU = std::thread(&MOSPFPacketModule_c::sendLSUThread, this);
+  neighbourTimeout = std::thread(&MOSPFPacketModule_c::neighbourTimeoutThread, this);
+  nodeTimeout = std::thread(&MOSPFPacketModule_c::nodeTimeoutThread, this);
 }
 
 void MOSPFPacketModule_c::sendHelloThread()
@@ -55,13 +58,7 @@ void MOSPFPacketModule_c::sendHelloThread()
 
 
   while (true) {
-    for (int slept = 0; slept < MOSPF_HELLOINT; slept++) {
-      if (neighbourInfoMap_changed) {
-        neighbourInfoMap_changed = false;
-        break;
-      }
-      sleep(1);
-    }
+    sleep(MOSPF_HELLOINT);
     
     char *packet = (char*)malloc(  // in net endian
       MOSPF_HEADER_LEN +
@@ -83,8 +80,8 @@ void MOSPFPacketModule_c::sendLSUThread()
   //sleep(1);  // avoid send at the same time with hello
   while (true) {
     for (int slept = 0; slept < MOSPF_LSUINT; slept++) {
-      if (nodeInfoMap_changed) {
-        nodeInfoMap_changed = false;
+      if (neighbourInfoMap_changed) {
+        neighbourInfoMap_changed = false;
         break;
       }
       sleep(1);
@@ -163,6 +160,60 @@ void MOSPFPacketModule_c::sendLSUThread()
       sizeof(struct LSU1Content_t) + sizeof(struct LSU2Content_t) * content1.nadv,
       0, 0
     );
+  }
+}
+
+void MOSPFPacketModule_c::neighbourTimeoutThread()
+{
+  while (true) {
+    sleep(1);
+
+    neighbourInfoMap_mutex.lock();
+
+    std::list<uint32_t> timeoutRidList;
+    for (std::map<uint32_t, struct neighbourInfo_t>::iterator iter =
+      neighbourInfoMap.begin(); iter != neighbourInfoMap.end(); iter++){
+
+      (iter->second.alive)++;
+      if (iter->second.alive == MOSPF_NEIGHBOUR_TIMEOUT) {
+        timeoutRidList.push_back(iter->first);
+      }
+    }
+    for (std::list<uint32_t>::iterator iter =
+      timeoutRidList.begin(); iter != timeoutRidList.end(); iter++){
+        neighbourInfoMap.erase(*iter);
+        neighbourInfoMap_changed = true;
+    }
+
+    neighbourInfoMap_mutex.unlock();
+  }
+}
+
+void MOSPFPacketModule_c::nodeTimeoutThread()
+{
+  while (true) {
+    sleep(1);
+
+    nodeInfoMap_mutex.lock();
+
+    std::list<uint32_t> timeoutRidList;
+    for (std::map<uint32_t, struct nodeInfo_t>::iterator iter =
+      nodeInfoMap.begin(); iter != nodeInfoMap.end(); iter++){
+
+      (iter->second.alive)++;
+      if (iter->second.alive == MOSPF_DATABASE_TIMEOUT) {
+        timeoutRidList.push_back(iter->first);
+      }
+    }
+    bool nodeInfoMap_changed = false;
+    for (std::list<uint32_t>::iterator iter =
+      timeoutRidList.begin(); iter != timeoutRidList.end(); iter++){
+        nodeInfoMap.erase(*iter);
+        nodeInfoMap_changed = true;
+    }
+    if (nodeInfoMap_changed) updateRouterTable();
+
+    nodeInfoMap_mutex.unlock();
   }
 }
 
@@ -280,6 +331,7 @@ void MOSPFPacketModule_c::sendPacket(
       memcpy(copiedPacket, packet, packetLen);
 
       IPServe_mutex.lock();
+      // TODO: LSU should have different destIP
       IPPacketModule->sendPacket(
         TTL_INIT, 0x5a, *iter, NEIGHBOUR_BROARDCAST_IP, 0x5,
         copiedPacket, packetLen
@@ -355,7 +407,7 @@ void MOSPFPacketModule_c::handleLSU(
     content2.push_back(content2Entry);
     tempPointer += sizeof(struct LSU2Content_t);
   }
-  #if 1
+  #if 0
     printf("******************************************************\n");
     printf("******MOSPFPacketModule_c::handleLSU start*****\n");
     printf("******************************************************\n");
@@ -374,12 +426,12 @@ void MOSPFPacketModule_c::handleLSU(
     nodeInfoMap[rid] = {
       rid, content1.seq, content1.nadv, 0, content2
     };
+    updateRouterTable();
   }
   else if (iter->second.seq < content1.seq) {
     nodeInfoMap[rid] = {
       rid, content1.seq, content1.nadv, 0, content2
     };
-    nodeInfoMap_changed = true;
   }
   else {
     printf("TODO: avoid receive same LSU for another time\n");
@@ -405,6 +457,14 @@ void MOSPFPacketModule_c::handleLSU(
     sendPacket(MOSPF_TYPE_LSU, LSUPacket, LSUPacketLen, rid, ifaceIP);
   }
 }
+
+//--------------------------------------------------------------------
+
+void MOSPFPacketModule_c::updateRouterTable()
+{
+  printf("TODO: updateRouterTable\n");
+}
+
 
 //--------------------------------------------------------------------
 
@@ -503,4 +563,6 @@ MOSPFPacketModule_c::~MOSPFPacketModule_c()
 {
   hello.join();
   LSU.join();
+  neighbourTimeout.join();
+  nodeTimeout.join();
 }

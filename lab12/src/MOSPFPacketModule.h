@@ -16,6 +16,8 @@ public:
   void startSubthread();
   void sendHelloThread();
   void sendLSUThread();
+  void neighbourTimeoutThread();
+  void nodeTimeoutThread();
 
   void handlePacket(
     char* MOSPFPacket, int MOSPFPacketLen, uint32_t srcIP, uint32_t ifaceIP
@@ -38,7 +40,7 @@ private:
   IPPacketModule_c* IPPacketModule;
 
   // sub threads
-  std::thread hello, LSU;
+  std::thread hello, LSU, neighbourTimeout, nodeTimeout;
 
   // header
   struct __attribute__ ((packed)) MOSPFHeader_t {
@@ -110,8 +112,10 @@ private:
   };
   std::map<uint32_t, struct nodeInfo_t> nodeInfoMap;
   std::mutex nodeInfoMap_mutex;
-  bool nodeInfoMap_changed = false;
 
+
+  // update routerTable
+  void updateRouterTable();
 
   // messy fix
   std::mutex IPServe_mutex;
