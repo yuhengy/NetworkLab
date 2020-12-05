@@ -8,17 +8,14 @@
 #include <string.h>
 #include <unistd.h>
 
-#define PRINT_STATUS
-//#define PRINT_PACKET_RECEIVE
-//#define PRINT_PACKET_SEND
-
 #define NEIGHBOUR_BROARDCAST_IP 0xe0000005  // 224.0.0.5
 #define MOSPF_TYPE_HELLO 1
 #define MOSPF_TYPE_LSU 4
 
-#define MOSPF_HELLOINT    5 // 5 seconds
-#define MOSPF_LSUINT    30  // 30 seconds
+#define MOSPF_HELLOINT    1 // 5 seconds
+#define MOSPF_LSUINT    5  // 30 seconds
 #define MOSPF_DATABASE_TIMEOUT    40  // 40 seconds
+#define LSU_TTL_INIT 3
 
 void MOSPFPacketModule_c::addIPAddr(uint32_t IPAddr)
 {
@@ -35,6 +32,7 @@ void MOSPFPacketModule_c::addIPPacketModule(IPPacketModule_c* _IPPacketModule)
 void MOSPFPacketModule_c::startSubthread()
 {
   hello = std::thread(&MOSPFPacketModule_c::sendHelloThread, this);
+  LSU = std::thread(&MOSPFPacketModule_c::sendLSUThread, this);
 }
 
 void MOSPFPacketModule_c::sendHelloThread()
@@ -45,7 +43,7 @@ void MOSPFPacketModule_c::sendHelloThread()
   content.padding = 0x0000;
 
 
-#ifdef PRINT_PACKET_SEND
+#if 0
   printf("******************************************************\n");
   printf("******MOSPFPacketModule_c::sendHelloThread start*****\n");
   printf("******************************************************\n");
@@ -57,11 +55,17 @@ void MOSPFPacketModule_c::sendHelloThread()
 
 
   while (true) {
-    sleep(MOSPF_HELLOINT);
+    for (int slept = 0; slept < MOSPF_HELLOINT; slept++) {
+      if (neighbourInfoMap_changed) {
+        neighbourInfoMap_changed = false;
+        break;
+      }
+      sleep(1);
+    }
     
     char *packet = (char*)malloc(  // in net endian
       MOSPF_HEADER_LEN +
-      sizeof(content)
+      sizeof(struct helloContent_t)
     );
     packet += MOSPF_HEADER_LEN;
 
@@ -70,16 +74,106 @@ void MOSPFPacketModule_c::sendHelloThread()
     endianSwap(((uint8_t*)packet) + 4 , 2);
     endianSwap(((uint8_t*)packet) + 6 , 2);
 
-    sendPacket(MOSPF_TYPE_HELLO, packet, sizeof(content));
+    sendPacket(MOSPF_TYPE_HELLO, packet, sizeof(struct helloContent_t), 0, 0);
+  }
+}
+
+void MOSPFPacketModule_c::sendLSUThread()
+{
+  //sleep(1);  // avoid send at the same time with hello
+  while (true) {
+    for (int slept = 0; slept < MOSPF_LSUINT; slept++) {
+      if (nodeInfoMap_changed) {
+        nodeInfoMap_changed = false;
+        break;
+      }
+      sleep(1);
+    }
+
+    // create from neighbourInfoMap
+    neighbourInfoMap_mutex.lock();
+
+    struct LSU1Content_t content1;
+    content1.seq = LSUSequence++;
+    content1.ttl = LSU_TTL_INIT;
+    content1.unused = 0x00;
+    content1.nadv = neighbourInfoMap.size();
+
+
+    std::list<uint32_t> nonReceivedNet;
+    for (std::list<uint32_t>::iterator iter =
+      IPList.begin(); iter != IPList.end(); iter++){
+        nonReceivedNet.push_back((*iter) & 0xffffff00);
+    }
+    std::list<struct LSU2Content_t> content2;
+    for (std::map<uint32_t, struct neighbourInfo_t>::iterator iter =
+      neighbourInfoMap.begin(); iter != neighbourInfoMap.end(); iter++){
+        content2.push_back({
+          iter->second.nbr_ip & iter->second.nbr_mask,
+          iter->second.nbr_mask,
+          iter->second.nbr_id
+        });
+        nonReceivedNet.remove(iter->second.nbr_ip & iter->second.nbr_mask);
+    }
+
+    neighbourInfoMap_mutex.unlock();
+
+    for (std::list<uint32_t>::iterator iter =
+      nonReceivedNet.begin(); iter != nonReceivedNet.end(); iter++){
+        content2.push_back({*iter, 0xffffff00, 0x00000000});
+        (content1.nadv)++;
+    }
+
+  #if 0
+    printf("******************************************************\n");
+    printf("******MOSPFPacketModule_c::sendLSUThread start*****\n");
+    printf("******************************************************\n");
+    debug_printLSUContent(content1, content2);
+    printf("****************************************************\n");
+    printf("******MOSPFPacketModule_c::sendLSUThread end*****\n");
+    printf("****************************************************\n");
+  #endif
+
+    // change endian
+    char *packet = (char*)malloc(
+      MOSPF_HEADER_LEN +
+      sizeof(struct LSU1Content_t) +
+      sizeof(struct LSU2Content_t) * content1.nadv
+    );
+    packet += MOSPF_HEADER_LEN;
+
+    *((struct LSU1Content_t *)packet) = content1;
+    endianSwap(((uint8_t*)packet)    , 2);
+    endianSwap(((uint8_t*)packet) + 4, 4);
+
+    char* tempPointer = packet + sizeof(struct LSU1Content_t);
+    for (std::list<struct LSU2Content_t>::iterator iter =
+      content2.begin(); iter != content2.end(); iter++){
+
+      *((struct LSU2Content_t *)tempPointer) = *iter;
+      endianSwap(((uint8_t*)tempPointer)    , 4);
+      endianSwap(((uint8_t*)tempPointer) + 4, 4);
+      endianSwap(((uint8_t*)tempPointer) + 8, 4);
+      tempPointer += sizeof(struct LSU2Content_t);
+    }
+
+    // send
+    sendPacket(
+      MOSPF_TYPE_LSU, packet,
+      sizeof(struct LSU1Content_t) + sizeof(struct LSU2Content_t) * content1.nadv,
+      0, 0
+    );
   }
 }
 
 
 //--------------------------------------------------------------------
 
-void MOSPFPacketModule_c::handlePacket(char* MOSPFPacket, int MOSPFPacketLen, uint32_t srcIP)
+void MOSPFPacketModule_c::handlePacket(
+  char* MOSPFPacket, int MOSPFPacketLen, uint32_t srcIP, uint32_t ifaceIP
+)
 {
-  header = *((struct MOSPFHeader_t *)MOSPFPacket);
+  struct MOSPFHeader_t header = *((struct MOSPFHeader_t *)MOSPFPacket);
   endianSwap((uint8_t*)&(header.len)     , 2);
   endianSwap((uint8_t*)&(header.rid)     , 4);
   endianSwap((uint8_t*)&(header.aid)     , 4);
@@ -89,11 +183,11 @@ void MOSPFPacketModule_c::handlePacket(char* MOSPFPacket, int MOSPFPacketLen, ui
   endianSwap((uint8_t*)&(header.padding) , 2);
 
 
-#ifdef PRINT_PACKET_RECEIVE
+#if 0
   printf("******************************************************\n");
   printf("******MOSPFPacketModule_c::handleCurrentPacket start*****\n");
   printf("******************************************************\n");
-  debug_printCurrentPacketHeader();
+  debug_printCurrentPacketHeader(header);
   printf("****************************************************\n");
   printf("******MOSPFPacketModule_c::handleCurrentPacket end*****\n");
   printf("****************************************************\n");
@@ -122,7 +216,9 @@ void MOSPFPacketModule_c::handlePacket(char* MOSPFPacket, int MOSPFPacketLen, ui
       );
       break;
     case MOSPF_TYPE_LSU:
-      handleLSU();
+      handleLSU(
+        MOSPFPacket + MOSPF_HEADER_LEN, MOSPFPacketLen- MOSPF_HEADER_LEN,
+        header.rid, ifaceIP);
       break;
     default:
       printf("Error: received mospf packet with unknown type (%d).", header.type);
@@ -131,16 +227,23 @@ void MOSPFPacketModule_c::handlePacket(char* MOSPFPacket, int MOSPFPacketLen, ui
 }
 
 void MOSPFPacketModule_c::sendPacket(
-  uint8_t type, char* upLayerPacket, int upLayerPacketLen
+  uint8_t type, char* upLayerPacket, int upLayerPacketLen,
+  uint32_t rid, uint32_t exclueIfaceIP
 )
 {
   char* packet  = upLayerPacket    - MOSPF_HEADER_LEN;
   int packetLen = upLayerPacketLen + MOSPF_HEADER_LEN;
 
+  struct MOSPFHeader_t header;
   header.version  = 0x2;
   header.type     = type;
   header.len      = packetLen;
-  header.rid      = *(IPList.begin());
+  if (rid == 0) {
+    header.rid    = *(IPList.begin());
+  }
+  else {
+    header.rid    = rid;
+  }
   header.aid      = 0x00000000;
   header.checksum = 0x0000;
   header.padding  = 0x0000;
@@ -155,12 +258,12 @@ void MOSPFPacketModule_c::sendPacket(
   header.checksum = checksumBase((uint16_t *)packet, packetLen, 0);
   ((struct MOSPFHeader_t *)packet)->checksum = header.checksum;
 
-#ifdef PRINT_PACKET_SEND
+#if 0
   printf("\n\n");
   printf("******************************************************\n");
   printf("**********MOSPFPacketModule_c::sendPacket start**********\n");
   printf("******************************************************\n");
-  debug_printCurrentPacketHeader();
+  debug_printCurrentPacketHeader(header);
   printf("****************************************************\n");
   printf("**********MOSPFPacketModule_c::sendPacket end**********\n");
   printf("****************************************************\n");
@@ -169,18 +272,22 @@ void MOSPFPacketModule_c::sendPacket(
   for (std::list<uint32_t>::iterator iter =
     IPList.begin(); iter != IPList.end(); iter++){
 
-    char *copiedPacket = (char*)malloc(
-      ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN + packetLen
-    );
-    copiedPacket += ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN;
-    memcpy(copiedPacket, packet, packetLen);
+    if (*iter != exclueIfaceIP) {
+      char *copiedPacket = (char*)malloc(
+        ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN + packetLen
+      );
+      copiedPacket += ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN;
+      memcpy(copiedPacket, packet, packetLen);
 
-    IPPacketModule->sendPacket(
-      TTL_INIT, 0x5a, *iter, NEIGHBOUR_BROARDCAST_IP, 0x5,
-      copiedPacket, packetLen
-    );
+      IPServe_mutex.lock();
+      IPPacketModule->sendPacket(
+        TTL_INIT, 0x5a, *iter, NEIGHBOUR_BROARDCAST_IP, 0x5,
+        copiedPacket, packetLen
+      );
+      IPServe_mutex.unlock();
+    }
   }
-  free(packet);
+  //free(packet);  // TODO: free when forward
 }
 
 
@@ -195,7 +302,7 @@ void MOSPFPacketModule_c::handleHello(
   endianSwap((uint8_t*)&(content.helloint), 2);
   endianSwap((uint8_t*)&(content.padding) , 2);
 
-#ifdef PRINT_PACKET_RECEIVE
+#if 0
   printf("******************************************************\n");
   printf("******MOSPFPacketModule_c::handleHello start*****\n");
   printf("******************************************************\n");
@@ -207,29 +314,101 @@ void MOSPFPacketModule_c::handleHello(
 
   // update old or insert new
   neighbourInfoMap_mutex.lock();
+  std::map<uint32_t, struct neighbourInfo_t>::iterator iter =
+    neighbourInfoMap.find(rid);
+  if (iter == neighbourInfoMap.end()) {
+    neighbourInfoMap_changed = true;
+  }
   neighbourInfoMap[rid] = {rid, srcIP, content.mask, 0};
-  neighbourInfoMap_mutex.unlock();
 
-#ifdef PRINT_STATUS
+#if 0
   printf("******************************************************\n");
   printf("******MOSPFPacketModule_c::neighbourInfoMap start*****\n");
   printf("******************************************************\n");
-  debug_printneighbourInfoMap();
+  debug_printNeighbourInfoMap();
   printf("****************************************************\n");
   printf("******MOSPFPacketModule_c::neighbourInfoMap end*****\n");
   printf("****************************************************\n");
 #endif
+
+  neighbourInfoMap_mutex.unlock();
+
   
 }
 
-void MOSPFPacketModule_c::handleLSU()
+void MOSPFPacketModule_c::handleLSU(
+  char* LSUPacket, int LSUPacketLen, uint32_t rid, uint32_t ifaceIP
+)
 {
-  printf("TODO: MOSPFPacketModule_c::handleLSU.\n");
+  // Save the packet info
+  struct LSU1Content_t content1 = *((struct LSU1Content_t *)LSUPacket);
+  endianSwap((uint8_t*)&(content1.seq) , 2);
+  endianSwap((uint8_t*)&(content1.nadv), 4);
+
+  char* tempPointer = LSUPacket + sizeof(struct LSU1Content_t);
+  std::list<struct LSU2Content_t> content2;
+  for (int index = 0; index < content1.nadv; index++){
+    struct LSU2Content_t content2Entry = *((struct LSU2Content_t *)tempPointer);
+    endianSwap((uint8_t*)&(content2Entry.network), 4);
+    endianSwap((uint8_t*)&(content2Entry.mask)   , 4);
+    endianSwap((uint8_t*)&(content2Entry.rid)    , 4);
+    content2.push_back(content2Entry);
+    tempPointer += sizeof(struct LSU2Content_t);
+  }
+  #if 1
+    printf("******************************************************\n");
+    printf("******MOSPFPacketModule_c::handleLSU start*****\n");
+    printf("******************************************************\n");
+    debug_printLSUContent(content1, content2);
+    printf("****************************************************\n");
+    printf("******MOSPFPacketModule_c::handleLSU end*****\n");
+    printf("****************************************************\n");
+  #endif
+
+  // Update the database
+  IPServe_mutex.lock();
+
+  std::map<uint32_t, struct nodeInfo_t>::iterator iter =
+    nodeInfoMap.find(rid);
+  if (iter == nodeInfoMap.end()) {
+    nodeInfoMap[rid] = {
+      rid, content1.seq, content1.nadv, 0, content2
+    };
+  }
+  else if (iter->second.seq < content1.seq) {
+    nodeInfoMap[rid] = {
+      rid, content1.seq, content1.nadv, 0, content2
+    };
+    nodeInfoMap_changed = true;
+  }
+  else {
+    printf("TODO: avoid receive same LSU for another time\n");
+  }
+
+#if 1
+  printf("******************************************************\n");
+  printf("******MOSPFPacketModule_c::nodeInfoMap start*****\n");
+  printf("******************************************************\n");
+  debug_printNodeInfoMap();
+  printf("****************************************************\n");
+  printf("******MOSPFPacketModule_c::nodeInfoMap end*****\n");
+  printf("****************************************************\n");
+#endif
+
+  IPServe_mutex.unlock();
+
+
+  // Forward the packet
+  // TODO: avoid send to the same iface
+  if (content1.ttl > 0) {
+    (((struct LSU1Content_t *)LSUPacket)->ttl)--;
+    sendPacket(MOSPF_TYPE_LSU, LSUPacket, LSUPacketLen, rid, ifaceIP);
+  }
 }
 
 //--------------------------------------------------------------------
 
-void MOSPFPacketModule_c::debug_printCurrentPacketHeader()
+void MOSPFPacketModule_c::debug_printCurrentPacketHeader(struct MOSPFHeader_t header)
 {
   printf("---------------MOSPF Packet Header start---------------\n");
   printf("version:  0x%02x\n", header.version);
@@ -240,15 +419,6 @@ void MOSPFPacketModule_c::debug_printCurrentPacketHeader()
   printf("checksum: 0x%04x\n", header.checksum);
   printf("padding:  0x%04x\n", header.padding);
   printf("^^^^^^^^^^^^^^^MOSPF Packet Header end^^^^^^^^^^^^^^^\n");
-}
-
-void MOSPFPacketModule_c::debug_printHelloContent(struct helloContent_t content)
-{
-  printf("---------------MOSPF Hello Content start---------------\n");
-  printf("mask:     0x%08x\n", content.mask);
-  printf("helloint: 0x%04x\n", content.helloint);
-  printf("padding:  0x%04x\n", content.padding);
-  printf("^^^^^^^^^^^^^^^MOSPF Hello Content end^^^^^^^^^^^^^^^\n");
 }
 
 void MOSPFPacketModule_c::debug_printIPList()
@@ -262,19 +432,69 @@ void MOSPFPacketModule_c::debug_printIPList()
   printf("^^^^^^^^^^^^^^^MOSPF IPList end^^^^^^^^^^^^^^^\n");
 }
 
-void MOSPFPacketModule_c::debug_printneighbourInfoMap()
+void MOSPFPacketModule_c::debug_printHelloContent(struct helloContent_t content)
+{
+  printf("---------------MOSPF Hello Content start---------------\n");
+  printf("mask:     0x%08x\n", content.mask);
+  printf("helloint: 0x%04x\n", content.helloint);
+  printf("padding:  0x%04x\n", content.padding);
+  printf("^^^^^^^^^^^^^^^MOSPF Hello Content end^^^^^^^^^^^^^^^\n");
+}
+
+void MOSPFPacketModule_c::debug_printNeighbourInfoMap()
 {
   printf("---------------MOSPF neighbourInfoMap start---------------\n");
   for (std::map<uint32_t, struct neighbourInfo_t>::iterator iter =
     neighbourInfoMap.begin(); iter != neighbourInfoMap.end(); iter++){
 
-    printf("------>");
-    printf("nbr_id:   0x%08x\n", iter->second.nbr_id);
-    printf("nbr_ip:   0x%08x\n", iter->second.nbr_ip);
-    printf("nbr_mask: 0x%08x\n", iter->second.nbr_mask);
-    printf("alive:    0x%02x\n", iter->second.alive);
+    printf("nbr_id: 0x%08x;  ", iter->second.nbr_id);
+    printf("nbr_ip: 0x%08x;  ", iter->second.nbr_ip);
+    printf("nbr_mask: 0x%08x;  ", iter->second.nbr_mask);
+    printf("alive: 0x%02x\n", iter->second.alive);
   }
   printf("^^^^^^^^^^^^^^^MOSPF neighbourInfoMap end^^^^^^^^^^^^^^^\n");
+}
+
+void MOSPFPacketModule_c::debug_printNodeInfoMap()
+{
+  printf("---------------MOSPF nodeInfoMap start---------------\n");
+  for (std::map<uint32_t, struct nodeInfo_t>::iterator iter =
+    nodeInfoMap.begin(); iter != nodeInfoMap.end(); iter++){
+
+    printf("----->");
+    printf("rid: 0x%08x;  ", iter->second.rid);
+    printf("seq: 0x%08x;  ", iter->second.seq);
+    printf("nadv: 0x%08x;  ", iter->second.nadv);
+    printf("alive: 0x%02x\n", iter->second.alive);
+    for (std::list<struct LSU2Content_t>::iterator iter2 =
+      iter->second.content2.begin();
+      iter2 != iter->second.content2.end(); iter2++){
+
+      printf("network: 0x%08x;  ", iter2->network);
+      printf("mask: 0x%04x;  ", iter2->mask);
+      printf("rid: 0x%04x\n", iter2->rid);
+    }
+  }
+  printf("^^^^^^^^^^^^^^^MOSPF nodeInfoMap end^^^^^^^^^^^^^^^\n");
+}
+
+void MOSPFPacketModule_c::debug_printLSUContent(
+  struct LSU1Content_t content1, std::list<struct LSU2Content_t> content2
+)
+{
+  printf("---------------MOSPF LSU Content start---------------\n");
+  printf("seq:    0x%08x\n", content1.seq);
+  printf("ttl:    0x%04x\n", content1.ttl);
+  printf("unused: 0x%04x\n", content1.unused);
+  printf("nadv:   0x%04x\n", content1.nadv);
+  for (std::list<struct LSU2Content_t>::iterator iter =
+    content2.begin(); iter != content2.end(); iter++){
+
+    printf("network: 0x%08x;  ", iter->network);
+    printf("mask: 0x%04x;  ", iter->mask);
+    printf("rid: 0x%08x\n", iter->rid);
+  }
+  printf("^^^^^^^^^^^^^^^MOSPF LSU Content end^^^^^^^^^^^^^^^\n");
 }
 
 //--------------------------------------------------------------------
@@ -282,4 +502,5 @@ void MOSPFPacketModule_c::debug_printneighbourInfoMap()
 MOSPFPacketModule_c::~MOSPFPacketModule_c()
 {
   hello.join();
+  LSU.join();
 }

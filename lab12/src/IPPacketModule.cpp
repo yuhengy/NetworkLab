@@ -49,7 +49,7 @@ void IPPacketModule_c::addRouterTableEntry(
 
 //--------------------------------------------------------------------
 
-void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
+void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen, uint32_t ifaceIP)
 {
   header = *((struct IPHeader_t *)IPPacket);
   endianSwap((uint8_t*)&(header.tot_len) , 2);
@@ -84,7 +84,7 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
   else if (header.daddr == NEIGHBOUR_BROARDCAST_IP) {
     MOSPFPacketModule->handlePacket(
       IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4,
-      header.saddr
+      header.saddr, ifaceIP
     );
   }
   

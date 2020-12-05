@@ -15,15 +15,19 @@ public:
 
   void startSubthread();
   void sendHelloThread();
+  void sendLSUThread();
 
-  void handlePacket(char* MOSPFPacket, int MOSPFPacketLen, uint32_t srcIP);
+  void handlePacket(
+    char* MOSPFPacket, int MOSPFPacketLen, uint32_t srcIP, uint32_t ifaceIP
+  );
   void sendPacket(
-    uint8_t type, char* upLayerPacket, int upLayerPacketLen
+    uint8_t type, char* upLayerPacket, int upLayerPacketLen,
+    uint32_t rid, uint32_t exclueIfaceIP
   );
 
-  void debug_printCurrentPacketHeader();
   void debug_printIPList();
-  void debug_printneighbourInfoMap();
+  void debug_printNeighbourInfoMap();
+  void debug_printNodeInfoMap();
 
   ~MOSPFPacketModule_c();
 
@@ -34,7 +38,7 @@ private:
   IPPacketModule_c* IPPacketModule;
 
   // sub threads
-  std::thread hello;
+  std::thread hello, LSU;
 
   // header
   struct __attribute__ ((packed)) MOSPFHeader_t {
@@ -45,15 +49,16 @@ private:
     uint32_t aid;
     uint16_t checksum;
     uint16_t padding;
-  } header;
+  };
+  void debug_printCurrentPacketHeader(struct MOSPFHeader_t header);
 
 
-  // handle packet in this layer
+  // handle hello packet in this layer
   void handleHello(
     char* helloPacket, int helloPacketLen, uint32_t rid, uint32_t srcIP
   );
 
-  // hello packet
+  // hello content
   struct __attribute__ ((packed)) helloContent_t {
     uint32_t mask;   // network mask associated with this interface
     uint16_t helloint; // number of seconds between hellos from this router
@@ -70,9 +75,48 @@ private:
   };
   std::map<uint32_t, struct neighbourInfo_t> neighbourInfoMap;
   std::mutex neighbourInfoMap_mutex;
+  bool neighbourInfoMap_changed = false;
 
 
-  void handleLSU();
+  // handle LSU packet in this layer
+  void handleLSU(
+    char* LSUPacket, int LSUPacketLen, uint32_t rid, uint32_t ifaceIP
+  );
+
+  // LSU content
+  uint16_t LSUSequence = 0;
+  struct __attribute__ ((packed)) LSU1Content_t {
+    uint16_t seq;
+    uint8_t  ttl;
+    uint8_t  unused;
+    uint32_t nadv;
+  };
+  struct __attribute__ ((packed)) LSU2Content_t {
+    uint32_t network;
+    uint32_t mask;
+    uint32_t rid;
+  };
+  void debug_printLSUContent(
+    struct LSU1Content_t content1, std::list<struct LSU2Content_t> content2
+  );
+
+  // database
+  struct nodeInfo_t {
+    uint32_t rid;
+    uint16_t seq;
+    uint32_t nadv;
+    uint8_t  alive;
+    std::list<struct LSU2Content_t> content2;
+  };
+  std::map<uint32_t, struct nodeInfo_t> nodeInfoMap;
+  std::mutex nodeInfoMap_mutex;
+  bool nodeInfoMap_changed = false;
+
+
+  // messy fix
+  std::mutex IPServe_mutex;
+
+
 };
 
 

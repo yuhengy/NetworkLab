@@ -50,7 +50,8 @@ void etherPacketModule_c::handlePacket(char* etherPacket, int etherPacketLen, in
     case 0x0800:
       IPPacketModule->handlePacket(
         etherPacket + sizeof(struct etherHeader_t),
-        etherPacketLen - sizeof(struct etherHeader_t)
+        etherPacketLen - sizeof(struct etherHeader_t),
+        ifaceMap[ifaceIndex]->getIP()
       );
       break;
     case 0x0806:

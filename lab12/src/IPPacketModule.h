@@ -23,7 +23,7 @@ public:
     uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
   );
 
-  void handlePacket(char* IPPacket, int IPPacketLen);
+  void handlePacket(char* IPPacket, int IPPacketLen, uint32_t ifaceIP);
   void handleARPPacket(uint32_t IP, uint64_t mac);
   void sendPacket(
     uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
