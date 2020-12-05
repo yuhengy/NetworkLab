@@ -9,7 +9,8 @@
 #include "MOSPFPacketModule.h"
 #include <stdio.h>
 
-#define PRINT_PACKET
+//#define PRINT_PACKET_RECEIVE
+//#define PRINT_PACKET_SEND
 
 #define NEIGHBOUR_BROARDCAST_IP 0xe0000005  // 224.0.0.5
 #define NEIGHBOUR_BROARDCAST_MAC 0x01005e000005  //01:00:5E:00:00:05
@@ -59,7 +60,7 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
   endianSwap((uint8_t*)&(header.daddr)   , 4);
 
 
-#ifdef PRINT_PACKET
+#ifdef PRINT_PACKET_RECEIVE
   printf("******************************************************\n");
   printf("******IPPacketModule_c::handleCurrentPacket start*****\n");
   printf("******************************************************\n");
@@ -82,7 +83,8 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen)
   
   else if (header.daddr == NEIGHBOUR_BROARDCAST_IP) {
     MOSPFPacketModule->handlePacket(
-      IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4
+      IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4,
+      header.saddr
     );
   }
   
@@ -188,7 +190,7 @@ void IPPacketModule_c::sendPacket(
 
 
 
-#ifdef PRINT_PACKET
+#ifdef PRINT_PACKET_SEND
   printf("\n\n");
   printf("******************************************************\n");
   printf("**********IPPacketModule_c::sendPacket start**********\n");
