@@ -15,13 +15,11 @@ class MOSPFPacketModule_c;
 class IPPacketModule_c {
 public:
   void addIPToIfaceIndexMap(uint32_t IPAddr, int ifaceIndex);
+  void addRouterTable(routerTable_c* _routerTable);
   void addEtherPacketModule(etherPacketModule_c* _etherPacketModule);
   void addARPPacketModule(ARPPacketModule_c* _ARPPacketModule);
   void addICMPPacketModule(ICMPPacketModule_c* _ICMPPacketModule);
   void addMOSPFPacketModule(MOSPFPacketModule_c* _MOSPFPacketModule);
-  void addRouterTableEntry(
-    uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
-  );
 
   void handlePacket(char* IPPacket, int IPPacketLen, uint32_t ifaceIP);
   void handleARPPacket(uint32_t IP, uint64_t mac);
@@ -34,7 +32,6 @@ public:
 
   void debug_printCurrentPacketHeader();
   void debug_printIPToIfaceIndexMap();
-  void debug_printRouterTable();
 
 
 private:
@@ -66,7 +63,7 @@ private:
   } header;
 
   // sub modules
-  routerTable_c routerTable;
+  routerTable_c* routerTable;
   ARPCache_c ARPCache;
   ARPMissPendingBuff_c ARPMissPendingBuff;
   

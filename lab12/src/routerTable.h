@@ -11,6 +11,10 @@ public:
   void addRouterTableEntry(
     uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
   );
+
+  void clearMOSPFEntry();
+  void addMOSPFEntry(uint32_t dest, uint32_t mask, uint32_t nextNet);
+
   bool hasNextIP(uint32_t destIP);
   bool findNextIP(
     uint32_t destIP, uint32_t* nextIP, int* ifaceIndex, uint32_t* ifaceIP
@@ -32,6 +36,7 @@ private:
   };
 
   std::list<struct routerTableEntry_t*> routerTable;
+  int MOSPFEntryNum = 0;
 
 };
 

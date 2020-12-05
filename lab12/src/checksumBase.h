@@ -7,7 +7,7 @@
 // as the initial value
 
 // Base in the name is only to avoid same name in old framework
-static inline uint16_t checksumBase(uint16_t *ptr, int nbytes, uint32_t sum)
+static uint16_t checksumBase(uint16_t *ptr, int nbytes, uint32_t sum)
 {
 	if (nbytes % 2) {
 		sum += ((uint8_t *)ptr)[--nbytes];

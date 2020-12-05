@@ -9,9 +9,6 @@
 #include "MOSPFPacketModule.h"
 #include <stdio.h>
 
-//#define PRINT_PACKET_RECEIVE
-//#define PRINT_PACKET_SEND
-
 #define NEIGHBOUR_BROARDCAST_IP 0xe0000005  // 224.0.0.5
 #define NEIGHBOUR_BROARDCAST_MAC 0x01005e000005  //01:00:5E:00:00:05
 
@@ -40,11 +37,9 @@ void IPPacketModule_c::addMOSPFPacketModule(MOSPFPacketModule_c* _MOSPFPacketMod
   MOSPFPacketModule = _MOSPFPacketModule;
 }
 
-void IPPacketModule_c::addRouterTableEntry(
-    uint32_t dest, uint32_t mask, uint32_t gw, int ifaceIndex, uint32_t ifaceIP
-  )
+void IPPacketModule_c::addRouterTable(routerTable_c* _routerTable)
 {
-  routerTable.addRouterTableEntry(dest, mask, gw, ifaceIndex, ifaceIP);
+  routerTable = _routerTable;
 }
 
 //--------------------------------------------------------------------
@@ -60,7 +55,7 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen, uint32_t if
   endianSwap((uint8_t*)&(header.daddr)   , 4);
 
 
-#ifdef PRINT_PACKET_RECEIVE
+#if 0
   printf("******************************************************\n");
   printf("******IPPacketModule_c::handleCurrentPacket start*****\n");
   printf("******************************************************\n");
@@ -103,7 +98,7 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen, uint32_t if
     }
   }
   
-  else if (routerTable.hasNextIP(header.daddr)) {
+  else if (routerTable->hasNextIP(header.daddr)) {
     handleForward(IPPacket, IPPacketLen);
   }
   
@@ -121,7 +116,7 @@ void IPPacketModule_c::handleARPPacket(uint32_t IP, uint64_t mac)
 {
   ARPCache.addARPCacheEntry(IP, mac);
 
-  ARPMissPendingBuff.debug_printARPMissPendingBuff();
+  //ARPMissPendingBuff.debug_printARPMissPendingBuff();
 
   
   std::list<struct ARPMissPendingEntry_c*>* ARPMissPendingList =
@@ -190,7 +185,7 @@ void IPPacketModule_c::sendPacket(
 
 
 
-#ifdef PRINT_PACKET_SEND
+#if 0
   printf("\n\n");
   printf("******************************************************\n");
   printf("**********IPPacketModule_c::sendPacket start**********\n");
@@ -253,9 +248,12 @@ bool IPPacketModule_c::findNormalIPMacIface(
   uint32_t nextIP;
   uint32_t ifaceIP;
 
-  if (!routerTable.findNextIP(daddr, &nextIP, ifaceIndex, &ifaceIP)) {
+  if (!routerTable->findNextIP(daddr, &nextIP, ifaceIndex, &ifaceIP)) {
     printf("Error: IPModule unable to send this packet\n");
   }
+
+  printf("routerTable_c::findNextIP: destIP %x; nextIP %x; ifaceIndex %d, ifaceIP %x\n",
+    daddr, nextIP, *ifaceIndex, ifaceIP);
 
   // TODO: a little messy
   if (saddr == 0) {
@@ -336,10 +334,4 @@ void IPPacketModule_c::debug_printIPToIfaceIndexMap()
     printf("IP: 0x%08x --> ifaceIndex: 0x%d\n", iter->first, iter->second);
   }
   printf("^^^^^^^^^^^^^^^IP IPToIfaceIndexMap end^^^^^^^^^^^^^^^\n");
-}
-
-
-void IPPacketModule_c::debug_printRouterTable()
-{
-  routerTable.debug_printRouterTable();
 }

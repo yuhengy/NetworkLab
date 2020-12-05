@@ -26,7 +26,7 @@ void ICMPPacketModule_c::handlePacket(
   endianSwap((uint8_t*)&(header.checksum), 2);
 
 
-
+#if 0
   printf("******************************************************\n");
   printf("*****ICMPPacketModule_c::handleCurrentPacket start****\n");
   printf("******************************************************\n");
@@ -34,6 +34,7 @@ void ICMPPacketModule_c::handlePacket(
   printf("****************************************************\n");
   printf("*****ICMPPacketModule_c::handleCurrentPacket end****\n");
   printf("****************************************************\n");
+#endif
 
 
   if (type == 0x03 && code == 0x00) {
@@ -71,7 +72,7 @@ void ICMPPacketModule_c::sendPacket(
 
 
 
-
+#if 0
   printf("\n\n");
   printf("******************************************************\n");
   printf("*********ICMPPacketModule_c::sendPacket start*********\n");
@@ -80,7 +81,7 @@ void ICMPPacketModule_c::sendPacket(
   printf("****************************************************\n");
   printf("*********ICMPPacketModule_c::sendPacket end*********\n");
   printf("****************************************************\n");
-
+#endif
 
   IPPacketModule->sendPacket(
     TTL_INIT, 0x1, 0x00000000, targetIP, 0x5,

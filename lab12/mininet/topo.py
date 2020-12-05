@@ -74,6 +74,10 @@ if __name__ == '__main__':
     h1.cmd('route add default gw 10.0.1.1')
     h2.cmd('route add default gw 10.0.6.4')
 
+    # for debug
+    #r1.cmd("route add -net 10.0.6.0 netmask 255.255.255.0 gw 10.0.2.2 dev r1-eth1")
+    #r2.cmd("route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.2.1 dev r2-eth0")
+
     for h in (h1, h2):
         h.cmd('./scripts/disable_offloading.sh')
         h.cmd('./scripts/disable_ipv6.sh')
@@ -89,11 +93,11 @@ if __name__ == '__main__':
         #r.cmd('stdbuf -oL -eL ./build/mospfd-reference > result-reference/STEP1-r%d.txt 2>&1 &' % (index+1))
         r.cmd('stdbuf -oL -eL ./build/mospfd > result/STEP1-r%d.txt 2>&1 &' % (index+1))
     
-    time.sleep(10)
-    #h1.cmd("traceroute 10.0.6.22 > result/STEP2-firstPing.txt 2>&1")
+    time.sleep(20)
+    h1.cmd("traceroute 10.0.6.22 > result/STEP2-firstPing.txt 2>&1")
 
     net.configLinkStatus("r2", "r4", "down")
 
-    time.sleep(10)
-    #h1.cmd("traceroute 10.0.6.22 > result/STEP2-secondPing.txt 2>&1")
+    time.sleep(20)
+    h1.cmd("traceroute 10.0.6.22 > result/STEP2-secondPing.txt 2>&1")
     net.stop()

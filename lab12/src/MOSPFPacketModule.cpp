@@ -3,24 +3,31 @@
 #include "common.h"
 #include "endianSwap.h"
 #include "checksumBase.h"
+#include "dijkstra.h"
 #include "IPPacketModule.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <algorithm>
 
 #define NEIGHBOUR_BROARDCAST_IP 0xe0000005  // 224.0.0.5
 #define MOSPF_TYPE_HELLO 1
 #define MOSPF_TYPE_LSU 4
 
-#define MOSPF_HELLOINT    1 // 5 seconds
-#define MOSPF_NEIGHBOUR_TIMEOUT    3 // 15 seconds
-#define MOSPF_LSUINT    5  // 30 seconds
-#define MOSPF_DATABASE_TIMEOUT    10  // 40 seconds
-#define LSU_TTL_INIT 2
+#define MOSPF_HELLOINT    5 // 5 seconds
+#define MOSPF_NEIGHBOUR_TIMEOUT    15 // 15 seconds
+#define MOSPF_LSUINT    30  // 30 seconds
+#define MOSPF_DATABASE_TIMEOUT    40  // 40 seconds
+#define LSU_TTL_INIT 64
 
 void MOSPFPacketModule_c::addIPAddr(uint32_t IPAddr)
 {
   IPList.push_back(IPAddr);
+}
+
+void MOSPFPacketModule_c::addRouterTable(routerTable_c* _routerTable)
+{
+  routerTable = _routerTable;
 }
 
 void MOSPFPacketModule_c::addIPPacketModule(IPPacketModule_c* _IPPacketModule)
@@ -211,9 +218,10 @@ void MOSPFPacketModule_c::nodeTimeoutThread()
         nodeInfoMap.erase(*iter);
         nodeInfoMap_changed = true;
     }
+    nodeInfoMap_mutex.unlock();
+
     if (nodeInfoMap_changed) updateRouterTable();
 
-    nodeInfoMap_mutex.unlock();
   }
 }
 
@@ -392,6 +400,9 @@ void MOSPFPacketModule_c::handleLSU(
   char* LSUPacket, int LSUPacketLen, uint32_t rid, uint32_t ifaceIP
 )
 {
+  // Do not include itself
+  if (rid == *(IPList.begin())) return;
+
   // Save the packet info
   struct LSU1Content_t content1 = *((struct LSU1Content_t *)LSUPacket);
   endianSwap((uint8_t*)&(content1.seq) , 2);
@@ -426,7 +437,6 @@ void MOSPFPacketModule_c::handleLSU(
     nodeInfoMap[rid] = {
       rid, content1.seq, content1.nadv, 0, content2
     };
-    updateRouterTable();
   }
   else if (iter->second.seq < content1.seq) {
     nodeInfoMap[rid] = {
@@ -434,7 +444,7 @@ void MOSPFPacketModule_c::handleLSU(
     };
   }
   else {
-    printf("TODO: avoid receive same LSU for another time\n");
+    //printf("TODO: avoid receive same LSU for another time\n");
   }
 
 #if 1
@@ -446,6 +456,8 @@ void MOSPFPacketModule_c::handleLSU(
   printf("******MOSPFPacketModule_c::nodeInfoMap end*****\n");
   printf("****************************************************\n");
 #endif
+
+  updateRouterTable();
 
   IPServe_mutex.unlock();
 
@@ -462,7 +474,83 @@ void MOSPFPacketModule_c::handleLSU(
 
 void MOSPFPacketModule_c::updateRouterTable()
 {
-  printf("TODO: updateRouterTable\n");
+  nodeInfoMap_mutex.lock();
+
+  // total node number
+  int numNode = nodeInfoMap.size() + 1;
+
+  // init data
+  int graph[numNode * numNode];
+  int nextIndex[numNode];
+  for (int i = 0; i < numNode; i++) {
+    for (int j = 0; j < numNode; j++) {
+      graph[i * numNode + j] = -1;
+    }
+  }
+
+  // create a ridList
+  std::vector<uint32_t> ridList;
+  ridList.push_back(*(IPList.begin()));
+  for (std::map<uint32_t, struct nodeInfo_t>::iterator iter =
+    nodeInfoMap.begin(); iter != nodeInfoMap.end(); iter++){
+      ridList.push_back(iter->first);
+  }
+
+  // compute the graph
+  for (std::map<uint32_t, struct nodeInfo_t>::iterator iter =
+    nodeInfoMap.begin(); iter != nodeInfoMap.end(); iter++){
+
+    // find index of one end of the link
+    std::vector<uint32_t>::iterator result = 
+      find(ridList.begin(), ridList.end(), iter->first);
+    int index = distance(ridList.begin(), result);
+    for (std::list<struct LSU2Content_t>::iterator iter2 =
+      iter->second.content2.begin(); iter2 != iter->second.content2.end(); iter2++){
+      
+      // find index of one end of the link
+      std::vector<uint32_t>::iterator result2 = 
+        find(ridList.begin(), ridList.end(), iter2->rid);
+      int index2 = distance(ridList.begin(), result2);
+
+      // add link
+      graph[index * numNode + index2] = 1;
+      graph[index2 * numNode + index] = 1;
+    }
+  }
+
+  // get dijkstra result (key:targetRid, value:nextRid)
+  std::map<uint32_t, uint32_t> nextRid;
+  dijkstra(graph, numNode, nextIndex);
+  for (int index = 1; index < numNode; index++) {
+    nextRid[ridList[index]] = ridList[nextIndex[index]];
+  }
+
+  // add entry to router table
+  // TODO: give routerTable a new mutex
+  routerTable->clearMOSPFEntry();
+  for (std::map<uint32_t, uint32_t>::iterator iter =
+    nextRid.begin(); iter != nextRid.end(); iter++){
+
+    for (std::list<struct LSU2Content_t>::iterator iter2 =
+      nodeInfoMap[iter->first].content2.begin();
+      iter2 != nodeInfoMap[iter->first].content2.end(); iter2++){
+
+      routerTable->addMOSPFEntry(iter2->network, iter2->mask, neighbourInfoMap[iter->second].nbr_ip);
+    }
+  }
+
+
+#if 1
+  printf("******************************************************\n");
+  printf("******MOSPFPacketModule_c::updateRouterTable start*****\n");
+  printf("******************************************************\n");
+  routerTable->debug_printRouterTable();
+  printf("****************************************************\n");
+  printf("******MOSPFPacketModule_c::updateRouterTable end*****\n");
+  printf("****************************************************\n");
+#endif
+
+  nodeInfoMap_mutex.unlock();
 }
 
 

@@ -1,3 +1,4 @@
+#include "routerTable.h"
 #include "etherPacketModule.h"
 #include "ARPPacketModule.h"
 #include "IPPacketModule.h"
@@ -21,6 +22,8 @@
 #include <linux/if_packet.h>
 
 #include <map>
+
+routerTable_c* routerTable;
 
 etherPacketModule_c* etherPacketModule;
 ARPPacketModule_c*   ARPPacketModule;
@@ -77,7 +80,7 @@ void initRouterTable()
 {
   rt_entry_t *entry = NULL;
   list_for_each_entry(entry, &rtable, list) {
-    IPPacketModule->addRouterTableEntry(
+    routerTable->addRouterTableEntry(
       entry->dest, entry->mask, entry->gw, entry->iface->index, entry->iface->ip
     );
   }
@@ -86,7 +89,7 @@ void initRouterTable()
   printf("**********************************************\n");
   printf("**********init initRouterTable start**********\n");
   printf("**********************************************\n");
-  IPPacketModule->debug_printRouterTable();
+  routerTable->debug_printRouterTable();
   printf("********************************************\n");
   printf("**********init initRouterTable end**********\n");
   printf("********************************************\n");
@@ -100,6 +103,8 @@ int main(int argc, const char **argv)
     exit(1);
   }
   init_ustack();
+  routerTable = new routerTable_c();
+
   etherPacketModule = new etherPacketModule_c();
   ARPPacketModule   = new ARPPacketModule_c();
   IPPacketModule    = new IPPacketModule_c();
@@ -115,6 +120,7 @@ int main(int argc, const char **argv)
   ARPPacketModule->addEtherPacketModule(etherPacketModule);
   ARPPacketModule->addIPPacketModule(IPPacketModule);
 
+  IPPacketModule->addRouterTable(routerTable);
   IPPacketModule->addEtherPacketModule(etherPacketModule);
   IPPacketModule->addARPPacketModule(ARPPacketModule);
   IPPacketModule->addICMPPacketModule(ICMPPacketModule);
@@ -122,6 +128,7 @@ int main(int argc, const char **argv)
 
   ICMPPacketModule->addIPPacketModule(IPPacketModule);
 
+  MOSPFPacketModule->addRouterTable(routerTable);
   MOSPFPacketModule->addIPPacketModule(IPPacketModule);
 
 

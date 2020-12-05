@@ -51,7 +51,7 @@ struct ARPMissPendingEntry_c* ARPMissPendingBuff_c::getTimeoutEntry()
   for (std::map<uint32_t, std::list<struct ARPMissPendingEntry_c*>>::iterator iter1 =
     ARPMissPendingBuff.begin(); iter1 != ARPMissPendingBuff.end(); iter1++){
 
-    printf("\n---> pending at IP: 0x%08x\n", iter1->first);
+    //printf("\n---> pending at IP: 0x%08x\n", iter1->first);
 
     for (std::list<struct ARPMissPendingEntry_c*>::iterator iter2 =
       iter1->second.begin(); iter2 != iter1->second.end(); iter2++){

@@ -2,7 +2,9 @@
 #define __MOSPFPACKETMODULE_H__
 
 class IPPacketModule_c;
+#include "routerTable.h"
 #include <stdint.h>
+#include <vector> 
 #include <list>
 #include <map>
 #include <thread>
@@ -11,13 +13,10 @@ class IPPacketModule_c;
 class MOSPFPacketModule_c {
 public:
   void addIPAddr(uint32_t IPAddr);
+  void addRouterTable(routerTable_c* _routerTable);
   void addIPPacketModule(IPPacketModule_c* IPPacketModule);
 
   void startSubthread();
-  void sendHelloThread();
-  void sendLSUThread();
-  void neighbourTimeoutThread();
-  void nodeTimeoutThread();
 
   void handlePacket(
     char* MOSPFPacket, int MOSPFPacketLen, uint32_t srcIP, uint32_t ifaceIP
@@ -37,9 +36,14 @@ public:
 private:
   // configuration
   std::list<uint32_t> IPList;
+  routerTable_c* routerTable;
   IPPacketModule_c* IPPacketModule;
 
   // sub threads
+  void sendHelloThread();
+  void sendLSUThread();
+  void neighbourTimeoutThread();
+  void nodeTimeoutThread();
   std::thread hello, LSU, neighbourTimeout, nodeTimeout;
 
   // header

@@ -15,6 +15,31 @@ void routerTable_c::addRouterTableEntry(
   routerTable.push_back(routerTableEntry);
 }
 
+void routerTable_c::clearMOSPFEntry()
+{
+  while(MOSPFEntryNum > 0) {
+    routerTable.pop_back();
+    MOSPFEntryNum--;
+  }
+}
+
+void routerTable_c::addMOSPFEntry(uint32_t dest, uint32_t mask, uint32_t nextNet)
+{
+  printf("Dijkstra: dest: %x, nextNet: %x\n", dest, nextNet);
+
+  uint32_t nextIP;
+  int      ifaceIndex;
+  uint32_t ifaceIP;
+
+  // This is a little messy
+  // TODO: solve when each iface map to one MOSPFModule
+  if (!findNextIP(nextNet, &nextIP, &ifaceIndex, &ifaceIP)){
+    printf("Error: cannot add MOSPF entry to router table.\n");
+  }
+  addRouterTableEntry(dest, mask, nextIP, ifaceIndex, ifaceIP);
+  MOSPFEntryNum++;
+}
+
 bool routerTable_c::hasNextIP(uint32_t destIP)
 {
 

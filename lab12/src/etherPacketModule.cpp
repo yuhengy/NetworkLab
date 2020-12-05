@@ -8,8 +8,6 @@
 #include <arpa/inet.h>
 #include <linux/if_packet.h>
 
-//#define PRINT_PACKET
-
 void etherPacketModule_c::addIface(int index, iface_c* iface)
 {
   ifaceMap[index] = iface;
@@ -35,7 +33,7 @@ void etherPacketModule_c::handlePacket(char* etherPacket, int etherPacketLen, in
   endianSwap((uint8_t*)&(header.ether_type) , 2);
 
 
-#ifdef PRINT_PACKET
+#if 0
   printf("\n\n");
   printf("******************************************************\n");
   printf("****etherPacketModule_c::handleCurrentPacket start****\n");
@@ -85,7 +83,7 @@ void etherPacketModule_c::sendPacket(
 
 
 
-#ifdef PRINT_PACKET
+#if 0
   printf("\n\n");
   printf("******************************************************\n");
   printf("*********etherPacketModule_c::sendPacket start********\n");

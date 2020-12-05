@@ -34,7 +34,7 @@ void ARPPacketModule_c::handlePacket(char* ARPPacket, int ARPPacketLen, int ifac
   endianSwap((uint8_t*)&(header.arp_tpa), 4);
 
 
-
+#if 0
   printf("\n\n");
   printf("****************************************************\n");
   printf("****ARPPacketModule_c::handleCurrentPacket start****\n");
@@ -43,6 +43,7 @@ void ARPPacketModule_c::handlePacket(char* ARPPacket, int ARPPacketLen, int ifac
   printf("**************************************************\n");
   printf("****ARPPacketModule_c::handleCurrentPacket end****\n");
   printf("**************************************************\n");
+#endif
 
   switch (header.arp_op) {
     case 0x0001:
@@ -80,7 +81,7 @@ void ARPPacketModule_c::sendPacket(
   endianSwap(((uint8_t*)ARPPacket) + 18, 6);
   endianSwap(((uint8_t*)ARPPacket) + 24, 4);
 
-
+#if 0
   printf("\n\n");
   printf("******************************************************\n");
   printf("**********ARPPacketModule_c::sendPacket start*********\n");
@@ -89,7 +90,8 @@ void ARPPacketModule_c::sendPacket(
   printf("****************************************************\n");
   printf("**********ARPPacketModule_c::sendPacket end*********\n");
   printf("****************************************************\n");
-
+#endif
+  
   etherPacketModule->sendPacket(
     header.arp_tha, 0x0806,
     ARPPacket, upLayerPacketLen + sizeof(struct ARPHeader_t), _ifaceIndex
