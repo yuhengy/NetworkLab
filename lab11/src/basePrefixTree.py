@@ -34,14 +34,14 @@ class basePrefixTree_c():
     return lastMatchNode["match"], lastMatchNode["IPStr"], \
            lastMatchNode["mask"] , lastMatchNode["iface"]
 
-def generateBaseResult(fileName):
+def generateBaseResult(fileName, routerSize):
 
   dataSet = parseDataSet(fileName)
   baseResult = []
 
   timeStart = time.time()
   basePrefixTree = basePrefixTree_c()
-  for entry in dataSet:
+  for entry in dataSet[:routerSize]:
     basePrefixTree.insertEntry(entry["IPStr"], entry["mask"], entry["iface"])
   timeToCreate = time.time() - timeStart
 
@@ -62,9 +62,9 @@ def generateBaseResult(fileName):
 
   return baseResult, timeToCreate, timeToSearch, memoryUsageMB
 
-def checkWithBase(fileName, result):
+def checkWithBase(fileName, routerSize, result):
 
-  baseResult, timeToCreate, timeToSearch, memoryUsageMB = generateBaseResult(fileName)
+  baseResult, _, _, _ = generateBaseResult(fileName, routerSize)
   assert(len(baseResult) == len(result) and "Error: result Len Mismatch.")
   for i, (baseEntry, entry) in enumerate(zip(baseResult, result)):
     for baseValue, value in zip(baseEntry.values(), entry.values()):
@@ -74,16 +74,18 @@ def checkWithBase(fileName, result):
         print("But our result: ", entry)
         assert(False)
 
-  print("**********CHECK RESULT PASS**********")
+  print("---> check result pass")
 
 
 
 
 if __name__ == "__main__":
   fileName = sys.argv[1]
+  routerSize = int(sys.argv[2])
 
-  baseResult, timeToCreate, timeToSearch, memoryUsageMB = generateBaseResult(fileName)
+  baseResult, timeToCreate, timeToSearch, memoryUsageMB = generateBaseResult(fileName, routerSize)
 
+  print("\n")
   print("------------------------------------------")
   print("---------------BASE SUMMARY---------------")
   print("------------------------------------------")
