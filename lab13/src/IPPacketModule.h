@@ -5,10 +5,12 @@ class etherPacketModule_c;
 class ARPPacketModule_c;
 class ICMPPacketModule_c;
 class MOSPFPacketModule_c;
+class TCPPacketModule_c;
 #include "routerTable.h"
 #include "ARPCache.h"
 #include "ARPMissPendingBuff.h"
 #include <stdint.h>
+#include <vector>
 #include <map>
 #include <endian.h>
 
@@ -20,6 +22,9 @@ public:
   void addARPPacketModule(ARPPacketModule_c* _ARPPacketModule);
   void addICMPPacketModule(ICMPPacketModule_c* _ICMPPacketModule);
   void addMOSPFPacketModule(MOSPFPacketModule_c* _MOSPFPacketModule);
+  void addTCPPacketModule(TCPPacketModule_c* _TCPPacketModule) {
+    TCPPacketModuleList.push_back(_TCPPacketModule);
+  }
 
   void handlePacket(char* IPPacket, int IPPacketLen, uint32_t ifaceIP);
   void handleARPPacket(uint32_t IP, uint64_t mac);
@@ -41,6 +46,7 @@ private:
   ARPPacketModule_c* ARPPacketModule;
   ICMPPacketModule_c* ICMPPacketModule;
   MOSPFPacketModule_c* MOSPFPacketModule;
+  std::vector<TCPPacketModule_c*> TCPPacketModuleList;
 
   // header
   struct __attribute__ ((packed)) IPHeader_t {  //TODO header length can change

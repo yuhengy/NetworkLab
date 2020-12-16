@@ -7,6 +7,7 @@
 #include "ARPPacketModule.h"
 #include "ICMPPacketModule.h"
 #include "MOSPFPacketModule.h"
+#include "TCPPacketModule.h"
 #include <stdio.h>
 
 #define NEIGHBOUR_BROARDCAST_IP 0xe0000005  // 224.0.0.5
@@ -55,7 +56,7 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen, uint32_t if
   endianSwap((uint8_t*)&(header.daddr)   , 4);
 
 
-#if 0
+#if 1
   printf("******************************************************\n");
   printf("******IPPacketModule_c::handleCurrentPacket start*****\n");
   printf("******************************************************\n");
@@ -64,6 +65,25 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen, uint32_t if
   printf("******IPPacketModule_c::handleCurrentPacket end*****\n");
   printf("****************************************************\n");
 #endif
+
+  auto iter0 = TCPPacketModuleList.begin();
+  for (; iter0 != TCPPacketModuleList.end(); iter0++) {
+
+    if (ifaceIP == (*iter0)->iface->getIP()) {
+      if (header.ihl != 0x5) {
+        printf("Error: think more when IP ihl != 5.\n");
+      }
+      (*iter0)->handlePacket(
+        IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4,
+        header.saddr, header.daddr
+      );
+      break;
+    }
+  }
+  if (iter0 == TCPPacketModuleList.end()) {
+    printf("Error: IP Packet is not send to TCP.\n");
+  }
+  return;
 
 
   std::map<uint32_t, int>::iterator iter = IPToIfaceIndexMap.find(header.daddr);
@@ -150,8 +170,19 @@ void IPPacketModule_c::sendPacket(
   header.tot_len  = packetLen;
   header.id       = 0x0000;
   header.frag_off = 0x4000;
-  header.ttl      = ttl;
-  header.protocol = protocol;
+  if (ttl == 0) {
+    header.ttl = ((struct IPHeader_t *)packet)->ttl;
+    header.ttl--;
+  }
+  else {
+    header.ttl      = ttl;
+  }
+  if (protocol == 0) {
+    header.protocol = ((struct IPHeader_t *)packet)->protocol;
+  }
+  else {
+    header.protocol = protocol;
+  }
   header.checksum = 0x0000;
   header.daddr    = daddr;
 

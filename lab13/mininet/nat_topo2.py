@@ -49,9 +49,13 @@ if __name__ == '__main__':
     n1.cmd('./scripts/disable_ipv6.sh')
 
     net.start()
+    h1.cmd('tshark -a duration:6 -w /STEP2-wiresharOutput-h1.pcapng > result/STEP2-tsharkOutput-h1.log 2>&1 &')
+    h2.cmd('tshark -a duration:6 -w /STEP2-wiresharOutput-h2.pcapng > result/STEP2-tsharkOutput-h2.log 2>&1 &')
+    h3.cmd('tshark -a duration:6 -w /STEP2-wiresharOutput-h3.pcapng > result/STEP2-tsharkOutput-h3.log 2>&1 &')
+    time.sleep(1)
 
-    #n1.cmd("stdbuf -oL -eL ./build/nat mininet/exp2.conf > result/STEP2-nat.txt 2>&1 &")
-    n1.cmd("stdbuf -oL -eL ./build/nat-reference mininet/exp2.conf > result/STEP2-nat.txt 2>&1 &")
+    n1.cmd("stdbuf -oL -eL ./build/nat mininet/exp2.conf > result/STEP2-nat.txt 2>&1 &")
+    #n1.cmd("stdbuf -oL -eL ./build/nat-reference mininet/exp2.conf > result/STEP2-nat.txt 2>&1 &")
     time.sleep(1)
     h1.cmd("stdbuf -oL -eL python ./mininet/http_server.py > result/STEP2-h1server.txt 2>&1 &")
     h2.cmd("stdbuf -oL -eL python ./mininet/http_server.py > result/STEP2-h2server.txt 2>&1 &")
@@ -60,6 +64,9 @@ if __name__ == '__main__':
     h3.cmd("wget http://159.226.39.43:8001 -O result/STEP2-h3clientToh2-index.html > result/STEP2-h3clientToh2.txt 2>&1 &")
     
     time.sleep(5)
+    h3.cmd('mv /STEP2-wiresharOutput-h1.pcapng result/')
+    h3.cmd('mv /STEP2-wiresharOutput-h2.pcapng result/')
+    h3.cmd('mv /STEP2-wiresharOutput-h3.pcapng result/')
 
     #CLI(net)
     net.stop()

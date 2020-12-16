@@ -1,9 +1,11 @@
 #include "routerTable.h"
+#include "nat.h"
 #include "etherPacketModule.h"
 #include "ARPPacketModule.h"
 #include "IPPacketModule.h"
 #include "ICMPPacketModule.h"
 #include "MOSPFPacketModule.h"
+#include "TCPPacketModule.h"
 #include "iface.h"
 #include "endianSwap.h"
 #include "messyOldFramework/ether.h"
@@ -22,14 +24,18 @@
 #include <linux/if_packet.h>
 
 #include <map>
+#include <vector>
 
+std::vector<iface_c*> ifaceList;
 routerTable_c* routerTable;
+nat_c* nat;
 
 etherPacketModule_c* etherPacketModule;
 ARPPacketModule_c*   ARPPacketModule;
 IPPacketModule_c*    IPPacketModule;
 ICMPPacketModule_c*  ICMPPacketModule;
 MOSPFPacketModule_c* MOSPFPacketModule;
+std::vector<TCPPacketModule_c> TCPPacketModuleList;
 
 
 
@@ -46,16 +52,20 @@ void handle_packet(iface_info_t *iface, char *packet, int len)
 void initIfaceMacIPConfig()
 {
   iface_info_t *iface = NULL;
+  int ifaceID = 0;
   uint64_t mac;
   list_for_each_entry(iface, &instance->iface_list, list) {
     mac = 0;
     memcpy(((char*)(&(mac))) + 2, iface->mac, 6);
     endianSwap((uint8_t*)&mac, 8);
 
-    etherPacketModule->addIface(iface->index, 
-      new iface_c(iface->fd, iface->index, mac, iface->ip, iface->mask, iface->name, iface->ip_str));
+    ifaceList.push_back(new iface_c(
+      iface->fd, iface->index, mac, iface->ip, iface->mask, iface->name, iface->ip_str
+    ));
+    etherPacketModule->addIface(iface->index, *(ifaceList.end() - 1));
     ARPPacketModule->addIfaceIPToMac(iface->ip, mac);
     IPPacketModule->addIPToIfaceIndexMap(iface->ip, iface->index);
+    TCPPacketModuleList.push_back(TCPPacketModule_c(*(ifaceList.end() - 1)));
 
     if (iface->mask != 0xffffff00) {
       printf("Error: MOSPF does not support mask != 0xffffff00\n");
@@ -104,6 +114,15 @@ int main(int argc, const char **argv)
   }
   init_ustack();
   routerTable = new routerTable_c();
+  nat = new nat_c(argv[1]);
+  printf("\n\n");
+  printf("**********************************************\n");
+  printf("****************init nat start****************\n");
+  printf("**********************************************\n");
+  nat->debug_printRuleList();
+  printf("**********************************************\n");
+  printf("*****************init nat end*****************\n");
+  printf("**********************************************\n");
 
   etherPacketModule = new etherPacketModule_c();
   ARPPacketModule   = new ARPPacketModule_c();
@@ -125,15 +144,23 @@ int main(int argc, const char **argv)
   IPPacketModule->addARPPacketModule(ARPPacketModule);
   IPPacketModule->addICMPPacketModule(ICMPPacketModule);
   IPPacketModule->addMOSPFPacketModule(MOSPFPacketModule);
+  for (auto iter = TCPPacketModuleList.begin();
+    iter != TCPPacketModuleList.end(); iter++) {
+
+    nat->addTCPPacketModule(&(*iter));
+    IPPacketModule->addTCPPacketModule(&(*iter));
+    iter->addIPPacketModule(IPPacketModule);
+    iter->addNat(nat);
+  }
 
   ICMPPacketModule->addIPPacketModule(IPPacketModule);
 
   MOSPFPacketModule->addRouterTable(routerTable);
   MOSPFPacketModule->addIPPacketModule(IPPacketModule);
 
-
+#if 0
   MOSPFPacketModule->startSubthread();
-
+#endif
 
   ustack_run();
 

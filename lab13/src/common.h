@@ -8,5 +8,6 @@
 #define DEFAULTIP_HEADER_LEN 20
 #define ICMP_HEADER_LEN 4
 #define MOSPF_HEADER_LEN 16
+#define TCP_HEADER_LEN 20
 
 #endif

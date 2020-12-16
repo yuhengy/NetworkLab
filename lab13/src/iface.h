@@ -15,6 +15,7 @@ public:
   int      getFd()  { return info.fd;  }
   uint32_t getIP()  { return info.ip;  }
   uint64_t getMac() { return info.mac; }
+  char*    getName() { return info.name; }
 
 
 private:

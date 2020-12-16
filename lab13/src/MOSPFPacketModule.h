@@ -14,7 +14,7 @@ class MOSPFPacketModule_c {
 public:
   void addIPAddr(uint32_t IPAddr);
   void addRouterTable(routerTable_c* _routerTable);
-  void addIPPacketModule(IPPacketModule_c* IPPacketModule);
+  void addIPPacketModule(IPPacketModule_c* _IPPacketModule);
 
   void startSubthread();
 
