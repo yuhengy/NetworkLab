@@ -6,4 +6,5 @@ rm -f result/*
 
 sudo python mininet/nat_topo1.py
 sudo python mininet/nat_topo2.py
+sudo python mininet/nat_topo3.py
 
