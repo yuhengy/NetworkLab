@@ -16,9 +16,8 @@ public:
     IPPacketModule = _IPPacketModule;
   }
   void addNat(nat_c* _nat) { nat = _nat; }
-  void startSubthread();
 
-  void handlePacket(
+  bool handlePacket(
     char* TCPPacket, int TCPPacketLen, uint32_t sIP, uint32_t dIP
   );
   void sendPacket(

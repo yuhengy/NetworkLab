@@ -18,7 +18,7 @@
 #define TCP_PROTOCAL 6
 
 
-void TCPPacketModule_c::handlePacket(
+bool TCPPacketModule_c::handlePacket(
   char* TCPPacket, int TCPPacketLen, uint32_t sIP, uint32_t dIP
 )
 {
@@ -43,7 +43,7 @@ void TCPPacketModule_c::handlePacket(
   printf("****************************************************\n");
 #endif
 
-  nat->translate(
+  return nat->translate(
     this, TCPPacket + TCP_HEADER_LEN, TCPPacketLen - TCP_HEADER_LEN,
     sIP, header.sport, dIP, header.dport
   );

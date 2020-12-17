@@ -3,21 +3,27 @@
 
 
 class TCPPacketModule_c;
+#include <unistd.h>
 #include <list>
 #include <map>
+#include <thread>
+#include <mutex>
 
 
 class nat_c {
 public:
   nat_c(const char* fileName);
   void addTCPPacketModule(TCPPacketModule_c* _TCPPacketModule);
+  void startSubthread();
 
-  void translate(
+  bool translate(
     TCPPacketModule_c* _TCPPacketModule, char* TCPContent, int TCPContentLen,
     uint32_t sIP, uint16_t sPort, uint32_t dIP, uint16_t dPort
   );
 
   void debug_printRuleList();
+
+  ~nat_c();
 
 
 private:
@@ -25,6 +31,10 @@ private:
   char extIfaceName[20];
   TCPPacketModule_c* intTCPPacketModule;
   TCPPacketModule_c* extTCPPacketModule;
+
+  // sub thread
+  void tableTimeoutThread();
+  std::thread tableTimeout;
 
 
   struct rule_t {
@@ -45,10 +55,11 @@ private:
     uint32_t external_ip;    // ip address seen in public network (the ip address of external interface)
     uint16_t external_port;    // port seen in public network (assigned by nat)
 
-    //time_t update_time;   // when receiving the latest packet
+    uint8_t  alive;
   };
   std::map<std::pair<uint32_t, uint16_t>,
            std::list<struct natMap_t>> netTable;
+  std::mutex netTable_mutex;
   uint16_t assignExternalPort();
 
 };

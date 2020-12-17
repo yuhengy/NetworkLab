@@ -1,9 +1,12 @@
 #include "nat.h"
 
 #include "TCPPacketModule.h"
+#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+
+#define NATTABLE_TIMEOUT 60
 
 nat_c::nat_c(const char* fileName)
 {
@@ -57,11 +60,41 @@ void nat_c::addTCPPacketModule(TCPPacketModule_c* _TCPPacketModule)
 
 //--------------------------------------------------------------------
 
-void nat_c::translate(
+void nat_c::startSubthread()
+{
+  tableTimeout = std::thread(&nat_c::tableTimeoutThread, this);
+}
+
+
+void nat_c::tableTimeoutThread()
+{
+  while (true) {
+    sleep(1);
+
+    netTable_mutex.lock();
+
+    for (auto iter1 = netTable.begin(); iter1 !=netTable.end(); iter1++) {
+      auto iter2 = iter1->second.begin();
+      while (iter2 != iter1->second.end()) {
+        iter2->alive++;
+        if (iter2->alive > NATTABLE_TIMEOUT) iter1->second.erase(iter2++);
+      }
+    }
+
+    netTable_mutex.unlock();
+  }
+
+}
+
+//--------------------------------------------------------------------
+
+bool nat_c::translate(
   TCPPacketModule_c* _TCPPacketModule, char* TCPContent, int TCPContentLen,
   uint32_t sIP, uint16_t sPort, uint32_t dIP, uint16_t dPort
 )
 {
+  netTable_mutex.lock();
+
   if (_TCPPacketModule == intTCPPacketModule) {
 
     // exist
@@ -69,11 +102,14 @@ void nat_c::translate(
     if (iter1 != netTable.end()) {
       for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); iter2++) {
         if (iter2->internal_ip == sIP && iter2->internal_port == sPort) {
+          uint32_t tempIP = iter2->external_ip;
+          uint16_t tempPort = iter2->external_port;
+          iter2->alive = 0;
+          netTable_mutex.unlock();
           extTCPPacketModule->sendPacket(
-            TCPContent, TCPContentLen,
-            iter2->external_ip, iter2->external_port, dIP, dPort
+            TCPContent, TCPContentLen, tempIP, tempPort, dIP, dPort
           );
-          return;
+          return true;
         }
       }
     }
@@ -87,12 +123,13 @@ void nat_c::translate(
     auto iter = netTable.find(std::pair<uint32_t, uint16_t>(dIP, dPort));
     if (iter != netTable.end()) {
       iter->second.push_back({
-        dIP, dPort, sIP, sPort, newIP, newPort
+        dIP, dPort, sIP, sPort, newIP, newPort, 0
       });
     }
     else {
       printf("Error: insert a entry to netTable but cannnot find it.\n");
     }
+    netTable_mutex.unlock();
     extTCPPacketModule->sendPacket(
       TCPContent, TCPContentLen, newIP, newPort, dIP, dPort
     );
@@ -104,11 +141,14 @@ void nat_c::translate(
     if (iter1 != netTable.end()) {
       for (auto iter2 = iter1->second.begin(); iter2 != iter1->second.end(); iter2++) {
         if (iter2->external_ip == dIP && iter2->external_port == dPort) {
+          uint32_t tempIP = iter2->internal_ip;
+          uint16_t tempPort = iter2->internal_port;
+          iter2->alive = 0;
+          netTable_mutex.unlock();
           intTCPPacketModule->sendPacket(
-            TCPContent, TCPContentLen,
-            sIP, sPort, iter2->internal_ip, iter2->internal_port
+            TCPContent, TCPContentLen, sIP, sPort, tempIP, tempPort
           );
-          return;
+          return true;
         }
       }
     }
@@ -129,25 +169,29 @@ void nat_c::translate(
     }
     if (newIP == 0 && newPort == 0) {
       printf("Error: cannot find the port in Nat ruleList.\n");
+      return false;
     }
     auto iter = netTable.find(std::pair<uint32_t, uint16_t>(sIP, sPort));
     if (iter != netTable.end()) {
       iter->second.push_back({
-        sIP, sPort, newIP, newPort, dIP, dPort
+        sIP, sPort, newIP, newPort, dIP, dPort, 0
       });
     }
     else {
       printf("Error: insert a entry to netTable but cannnot find it.\n");
     }
+    netTable_mutex.unlock();
     intTCPPacketModule->sendPacket(
       TCPContent, TCPContentLen, sIP, sPort, newIP, newPort
     );
   }
 
   else {
+    netTable_mutex.unlock();
     printf("Error: Nat does not recognize a TCPPacketModule.\n");
   }
 
+  return true;
 }
 
 //--------------------------------------------------------------------
@@ -199,5 +243,11 @@ void nat_c::debug_printRuleList()
   printf("^^^^^^^^^^^^^^^Nat RuleLis end^^^^^^^^^^^^^^^\n");
 }
 
+//--------------------------------------------------------------------
+
+nat_c::~nat_c()
+{
+  tableTimeout.join();
+}
 
 

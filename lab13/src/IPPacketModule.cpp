@@ -73,10 +73,17 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen, uint32_t if
       if (header.ihl != 0x5) {
         printf("Error: think more when IP ihl != 5.\n");
       }
-      (*iter0)->handlePacket(
+      if (!(*iter0)->handlePacket(
         IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4,
         header.saddr, header.daddr
-      );
+      )) {
+        
+        ICMPPacketModule->handlePacket(
+          IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4, header.saddr,
+          IPPacket, header.ihl * 4,
+          0x03, 0x01
+        );
+      }
       break;
     }
   }
