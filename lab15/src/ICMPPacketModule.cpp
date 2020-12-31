@@ -47,7 +47,10 @@ void ICMPPacketModule_c::handlePacket(
     handleARPFail(IPHeader, IPHeaderLen, soureIP);
   }
   else if (type == 0x00 && code == 0x00) {
-    handlePingResp(ICMPPacket + ICMP_HEADER_LEN, ICMPPacketLen - ICMP_HEADER_LEN, soureIP);
+    if (header.type == 0x00 && header.code == 0x00)
+      handlePingResp(ICMPPacket + ICMP_HEADER_LEN, ICMPPacketLen - ICMP_HEADER_LEN, soureIP);
+    else
+      printf("Error: receive a ICMP Packet target this IP but is not ping.\n");
   }
   else {
     printf("???????????TODO: ICMP only support handleRouterTableFail\n");

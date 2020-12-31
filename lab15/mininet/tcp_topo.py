@@ -52,22 +52,24 @@ if __name__ == '__main__':
 
     h1.cmd('scripts/disable_ipv6.sh')
     h2.cmd('scripts/disable_ipv6.sh')
-    #h1.cmd('scripts/disable_offloading.sh && scripts/disable_tcp_rst.sh')
-    #h2.cmd('scripts/disable_offloading.sh && scripts/disable_tcp_rst.sh')
+    h1.cmd('scripts/disable_offloading.sh && scripts/disable_tcp_rst.sh')
+    h2.cmd('scripts/disable_offloading.sh && scripts/disable_tcp_rst.sh')
     # XXX: If you want to run user-level stack, you should execute 
     # disable_[arp,icmp,ip_forward].sh first. 
-    #h1.cmd('./scripts/disable_arp.sh && ./scripts/disable_icmp.sh && ./scripts/disable_ip_forward.sh')
-    #h2.cmd('./scripts/disable_arp.sh && ./scripts/disable_icmp.sh && ./scripts/disable_ip_forward.sh')
+    h1.cmd('./scripts/disable_arp.sh && ./scripts/disable_icmp.sh && ./scripts/disable_ip_forward.sh')
+    h2.cmd('./scripts/disable_arp.sh && ./scripts/disable_icmp.sh && ./scripts/disable_ip_forward.sh')
 
     net.start()
     #CLI(net)
-    h1.cmd('tshark -a duration:15 -w /wiresharkOutput-h1server.pcapng > result/tsharkOutput-h1server.log 2>&1 &')
-    h2.cmd('tshark -a duration:15 -w /wiresharkOutput-h2client.pcapng > result/tsharkOutput-h2client.log 2>&1 &')
-    time.sleep(5)
+    h1.cmd('tshark -a duration:30 -w /wiresharkOutput-h1server.pcapng > result/tsharkOutput-h1server.log 2>&1 &')
+    h2.cmd('tshark -a duration:30 -w /wiresharkOutput-h2client.pcapng > result/tsharkOutput-h2client.log 2>&1 &')
+    time.sleep(20)
 
-    h1.cmd("python build/tcp_stack.py server 10001 > result/h1server.txt 2>&1 &")
+    #h1.cmd("python build/tcp_stack.py server 10001 > result/h1server.txt 2>&1 &")
+    h1.cmd("stdbuf -oL -eL ./build/tcp_stack server 10001 > result/h1server.txt 2>&1 &")
     time.sleep(1)
-    h2.cmd("python build/tcp_stack.py client 10.0.0.1 10001 > result/h2client.txt 2>&1 &")
+    #h2.cmd("python build/tcp_stack.py client 10.0.0.1 10001 > result/h2client.txt 2>&1 &")
+    h2.cmd("stdbuf -oL -eL ./build/tcp_stack client 0x0a000001 10001 > result/h2client.txt 2>&1 &")
     time.sleep(10)
 
     h1.cmd('mv /wiresharkOutput-h1server.pcapng result/')

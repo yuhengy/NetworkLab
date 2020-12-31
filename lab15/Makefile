@@ -4,10 +4,10 @@ CPPFile += $(shell find src/messyOldFramework -name '*.c' -not -name 'main.c')
 HFile = $(shell find src -name '*.h')
 HFile += $(shell find src/messyOldFramework -name '*.h')
 
-.PHONY: nat clean
-nat: build/nat
+.PHONY: tcp_stack clean
+tcp_stack: build/tcp_stack
 
-build/nat: $(CPPFile) $(HFile)
+build/tcp_stack: $(CPPFile) $(HFile)
 	mkdir -p build
 	g++ -fpermissive $(CPPFile) -o $@ -lpthread
 

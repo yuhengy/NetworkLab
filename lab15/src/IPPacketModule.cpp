@@ -13,6 +13,8 @@
 #define NEIGHBOUR_BROARDCAST_IP 0xe0000005  // 224.0.0.5
 #define NEIGHBOUR_BROARDCAST_MAC 0x01005e000005  //01:00:5E:00:00:05
 
+#define TCP_PROTOCAL 6
+
 void IPPacketModule_c::addIPToIfaceIndexMap(uint32_t IPAddr, int ifaceIndex)
 {
   IPToIfaceIndexMap[IPAddr] = ifaceIndex;
@@ -56,7 +58,7 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen, uint32_t if
   endianSwap((uint8_t*)&(header.daddr)   , 4);
 
 
-#if 1
+#if 0
   printf("******************************************************\n");
   printf("******IPPacketModule_c::handleCurrentPacket start*****\n");
   printf("******************************************************\n");
@@ -66,31 +68,33 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen, uint32_t if
   printf("****************************************************\n");
 #endif
 
-  auto iter0 = TCPPacketModuleList.begin();
-  for (; iter0 != TCPPacketModuleList.end(); iter0++) {
+  if (header.protocol == TCP_PROTOCAL) {
+    auto iter0 = TCPPacketModuleList.begin();
+    for (; iter0 != TCPPacketModuleList.end(); iter0++) {
 
-    if (ifaceIP == (*iter0)->iface->getIP()) {
-      if (header.ihl != 0x5) {
-        printf("Error: think more when IP ihl != 5.\n");
+      if (ifaceIP == (*iter0)->iface->getIP()) {
+        if (header.ihl != 0x5) {
+          printf("Error: think more when IP ihl != 5.\n");
+        }
+        if (!(*iter0)->handlePacket(
+          IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4,
+          header.saddr, header.daddr
+        )) {
+          
+          ICMPPacketModule->handlePacket(
+            IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4, header.saddr,
+            IPPacket, header.ihl * 4,
+            0x03, 0x01
+          );
+        }
+        break;
       }
-      if (!(*iter0)->handlePacket(
-        IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4,
-        header.saddr, header.daddr
-      )) {
-        
-        ICMPPacketModule->handlePacket(
-          IPPacket + header.ihl * 4, IPPacketLen - header.ihl * 4, header.saddr,
-          IPPacket, header.ihl * 4,
-          0x03, 0x01
-        );
-      }
-      break;
     }
+    if (iter0 == TCPPacketModuleList.end()) {
+      printf("Error: IP Packet is not send to TCP.\n");
+    }
+    return;
   }
-  if (iter0 == TCPPacketModuleList.end()) {
-    printf("Error: IP Packet is not send to TCP.\n");
-  }
-  return;
 
 
   std::map<uint32_t, int>::iterator iter = IPToIfaceIndexMap.find(header.daddr);

@@ -5,6 +5,7 @@
 #include "endianSwap.h"
 #include "checksumBase.h"
 #include "IPPacketModule.h"
+#include "TCPSock.h"
 #include <string.h>
 
 
@@ -33,6 +34,10 @@ bool TCPPacketModule_c::handlePacket(
   //endianSwap((uint8_t*)&(header.checksum), 2);
   endianSwap((uint8_t*)&(header.urp)  , 2);
 
+  if (header.off != 5) {
+    printf("Error: TCP not support vary head length.\n");
+  }
+
 #if 1
   printf("******************************************************\n");
   printf("*********TCPPacketModule_c::handlePacket start********\n");
@@ -43,10 +48,19 @@ bool TCPPacketModule_c::handlePacket(
   printf("****************************************************\n");
 #endif
 
+#if 0
   return nat->translate(
     this, TCPPacket + TCP_HEADER_LEN, TCPPacketLen - TCP_HEADER_LEN,
     sIP, header.sport, dIP, header.dport
   );
+#endif
+
+  TCPSock->handlePacket(
+    TCPPacket + TCP_HEADER_LEN, TCPPacketLen - TCP_HEADER_LEN,
+    sIP, header.sport,
+    header.seq, header.ack, header.flags, header.rwnd
+  );
+  return true;
 
 }
 
@@ -55,7 +69,8 @@ bool TCPPacketModule_c::handlePacket(
 
 void TCPPacketModule_c::sendPacket(
   char* upLayerPacket, int upLayerPacketLen,
-  uint32_t sIP, uint16_t sPort, uint32_t dIP, uint16_t dPort
+  uint32_t sIP, uint16_t sPort, uint32_t dIP, uint16_t dPort,
+  uint8_t off, uint8_t ttl
 )
 {
   char* packet  = upLayerPacket    - TCP_HEADER_LEN;
@@ -69,7 +84,10 @@ void TCPPacketModule_c::sendPacket(
   header.ack = ((struct TCPHeader_t *)packet)->ack;
   endianSwap((uint8_t*)&(header.ack)  , 4);
   header.x2 = ((struct TCPHeader_t *)packet)->x2;
-  header.off = ((struct TCPHeader_t *)packet)->off;
+  if (off == 0)
+    header.off = ((struct TCPHeader_t *)packet)->off;
+  else
+    header.off = off;
   header.flags = ((struct TCPHeader_t *)packet)->flags;
   header.rwnd = ((struct TCPHeader_t *)packet)->rwnd;
   endianSwap((uint8_t*)&(header.rwnd) , 2);
@@ -109,7 +127,7 @@ void TCPPacketModule_c::sendPacket(
   printf("****************************************************\n");
 #endif
   
-  IPPacketModule->sendPacket(0, 0, sIP, dIP, 0x5, packet, packetLen);
+  IPPacketModule->sendPacket(ttl, TCP_PROTOCAL, sIP, dIP, 0x5, packet, packetLen);
 }
 
 
@@ -120,13 +138,13 @@ void TCPPacketModule_c::sendPacket(
 void TCPPacketModule_c::debug_printPacketHeader(struct TCPHeader_t header)
 {
   printf("---------------TCP Packet Header start---------------\n");
-  printf("sport:    0x%02x\n", header.sport);
-  printf("dport:    0x%02x\n", header.dport);
-  printf("seq:      0x%04x\n", header.seq);
+  printf("sport:    0x%04x\n", header.sport);
+  printf("dport:    0x%04x\n", header.dport);
+  printf("seq:      0x%08x\n", header.seq);
   printf("ack:      0x%08x\n", header.ack);
-  printf("x2:       0x%08x\n", header.x2);
-  printf("off:      0x%04x\n", header.off);
-  printf("flags:    0x%04x\n", header.flags);
+  printf("x2:       0x%01x\n", header.x2);
+  printf("off:      0x%01x\n", header.off);
+  printf("flags:    0x%02x\n", header.flags);
   printf("rwnd:     0x%04x\n", header.rwnd);
   printf("checksum: 0x%04x\n", header.checksum);
   printf("urp:      0x%04x\n", header.urp);

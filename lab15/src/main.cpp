@@ -6,6 +6,8 @@
 #include "ICMPPacketModule.h"
 #include "MOSPFPacketModule.h"
 #include "TCPPacketModule.h"
+#include "TCPSock.h"
+#include "TCPApp.h"
 #include "iface.h"
 #include "endianSwap.h"
 #include "messyOldFramework/ether.h"
@@ -36,6 +38,8 @@ IPPacketModule_c*    IPPacketModule;
 ICMPPacketModule_c*  ICMPPacketModule;
 MOSPFPacketModule_c* MOSPFPacketModule;
 std::vector<TCPPacketModule_c> TCPPacketModuleList;
+TCPSock_c* TCPSock;
+TCPApp_c* TCPApp;
 
 
 
@@ -114,6 +118,8 @@ int main(int argc, const char **argv)
   }
   init_ustack();
   routerTable = new routerTable_c();
+
+#if 0
   nat = new nat_c(argv[1]);
   printf("\n\n");
   printf("**********************************************\n");
@@ -123,6 +129,7 @@ int main(int argc, const char **argv)
   printf("**********************************************\n");
   printf("*****************init nat end*****************\n");
   printf("**********************************************\n");
+#endif
 
   etherPacketModule = new etherPacketModule_c();
   ARPPacketModule   = new ARPPacketModule_c();
@@ -147,10 +154,14 @@ int main(int argc, const char **argv)
   for (auto iter = TCPPacketModuleList.begin();
     iter != TCPPacketModuleList.end(); iter++) {
 
+#if 0
     nat->addTCPPacketModule(&(*iter));
+#endif
     IPPacketModule->addTCPPacketModule(&(*iter));
     iter->addIPPacketModule(IPPacketModule);
+#if 0
     iter->addNat(nat);
+#endif
   }
 
   ICMPPacketModule->addIPPacketModule(IPPacketModule);
@@ -161,6 +172,34 @@ int main(int argc, const char **argv)
 #if 0
   MOSPFPacketModule->startSubthread();
 #endif
+
+  if (ifaceList.size() != 1) {
+    printf("Error: TCP only support 1 iface.\n");
+  }
+  TCPSock = new TCPSock_c(*ifaceList.begin());
+  TCPApp = new TCPApp_c();
+
+  TCPSock->addTCPPacketModule(&(*TCPPacketModuleList.begin()));
+  TCPSock->addTCPApp(TCPApp);
+  TCPApp->addTCPSock(TCPSock);
+
+  if (strcmp(argv[1], "server") == 0) {
+    int temp;
+    uint16_t port;
+    sscanf(argv[2], "%d", &temp); port = (uint16_t)temp;
+    TCPApp->startServerthread(&port);
+  }
+  else if (strcmp(argv[1], "client") == 0) {
+    int temp;
+    struct sock_addr skaddr;
+    sscanf(argv[2], "%x", &(skaddr.IP));
+    sscanf(argv[3], "%d", &temp); skaddr.port = (uint16_t)temp;
+    TCPApp->startClientthread(&skaddr);
+  }
+  else {
+    printf("Error: wrong command formate.\n");
+  }
+
 
   ustack_run();
 

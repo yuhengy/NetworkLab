@@ -34,7 +34,7 @@ void ARPPacketModule_c::handlePacket(char* ARPPacket, int ARPPacketLen, int ifac
   endianSwap((uint8_t*)&(header.arp_tpa), 4);
 
 
-#if 0
+#if 1
   printf("\n\n");
   printf("****************************************************\n");
   printf("****ARPPacketModule_c::handleCurrentPacket start****\n");
@@ -81,7 +81,7 @@ void ARPPacketModule_c::sendPacket(
   endianSwap(((uint8_t*)ARPPacket) + 18, 6);
   endianSwap(((uint8_t*)ARPPacket) + 24, 4);
 
-#if 0
+#if 1
   printf("\n\n");
   printf("******************************************************\n");
   printf("**********ARPPacketModule_c::sendPacket start*********\n");
