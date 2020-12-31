@@ -5,7 +5,7 @@
 #include "endianSwap.h"
 #include "checksumBase.h"
 #include "IPPacketModule.h"
-#include "TCPSock.h"
+#include "TCPProtocol.h"
 #include <string.h>
 
 
@@ -55,7 +55,7 @@ bool TCPPacketModule_c::handlePacket(
   );
 #endif
 
-  TCPSock->handlePacket(
+  TCPProtocol->handlePacket(
     TCPPacket + TCP_HEADER_LEN, TCPPacketLen - TCP_HEADER_LEN,
     sIP, header.sport,
     header.seq, header.ack, header.flags, header.rwnd
@@ -70,7 +70,7 @@ bool TCPPacketModule_c::handlePacket(
 void TCPPacketModule_c::sendPacket(
   char* upLayerPacket, int upLayerPacketLen,
   uint32_t sIP, uint16_t sPort, uint32_t dIP, uint16_t dPort,
-  uint8_t off, uint8_t ttl
+  bool forward, uint32_t seq, uint32_t ack, uint8_t flags, uint16_t rwnd
 )
 {
   char* packet  = upLayerPacket    - TCP_HEADER_LEN;
@@ -79,18 +79,24 @@ void TCPPacketModule_c::sendPacket(
   struct TCPHeader_t header;
   header.sport = sPort;
   header.dport = dPort;
-  header.seq = ((struct TCPHeader_t *)packet)->seq;
-  endianSwap((uint8_t*)&(header.seq)  , 4);
-  header.ack = ((struct TCPHeader_t *)packet)->ack;
-  endianSwap((uint8_t*)&(header.ack)  , 4);
   header.x2 = ((struct TCPHeader_t *)packet)->x2;
-  if (off == 0)
+  if (forward) {
+    header.seq = ((struct TCPHeader_t *)packet)->seq;
+    endianSwap((uint8_t*)&(header.seq)  , 4);
+    header.ack = ((struct TCPHeader_t *)packet)->ack;
+    endianSwap((uint8_t*)&(header.ack)  , 4);
     header.off = ((struct TCPHeader_t *)packet)->off;
-  else
-    header.off = off;
-  header.flags = ((struct TCPHeader_t *)packet)->flags;
-  header.rwnd = ((struct TCPHeader_t *)packet)->rwnd;
-  endianSwap((uint8_t*)&(header.rwnd) , 2);
+    header.flags = ((struct TCPHeader_t *)packet)->flags;
+    header.rwnd = ((struct TCPHeader_t *)packet)->rwnd;
+    endianSwap((uint8_t*)&(header.rwnd) , 2);
+  }
+  else {
+    header.seq = seq;
+    header.ack = ack;
+    header.off = 5;
+    header.flags = flags;
+    header.rwnd = rwnd;
+  }
   header.checksum = 0x0000;
   header.urp = ((struct TCPHeader_t *)packet)->urp;
 
@@ -127,7 +133,10 @@ void TCPPacketModule_c::sendPacket(
   printf("****************************************************\n");
 #endif
   
-  IPPacketModule->sendPacket(ttl, TCP_PROTOCAL, sIP, dIP, 0x5, packet, packetLen);
+  if (forward)
+    IPPacketModule->sendPacket(0, 0, sIP, dIP, 0x5, packet, packetLen);
+  else
+    IPPacketModule->sendPacket(TTL_INIT, TCP_PROTOCAL, sIP, dIP, 0x5, packet, packetLen);
 }
 
 

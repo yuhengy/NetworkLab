@@ -1,7 +1,7 @@
 #ifndef __TCPAPP_H__
 #define __TCPAPP_H__
 
-class TCPSock_c;
+class TCPProtocol_c;
 #include <stdint.h>
 #include <thread>
 
@@ -9,7 +9,7 @@ class TCPSock_c;
 
 class TCPApp_c {
 public:
-  void addTCPSock(TCPSock_c* _TCPSock) { TCPSock = _TCPSock; }
+  void addTCPProtocol(TCPProtocol_c* _TCPProtocol) { TCPProtocol = _TCPProtocol; }
 
   void startServerthread(void *arg) {
     serverThread = std::thread(&TCPApp_c::TCPServer, this, arg);
@@ -20,7 +20,7 @@ public:
 
 
 private:
-  TCPSock_c* TCPSock;
+  TCPProtocol_c* TCPProtocol;
 
   // sub threads
   void TCPServer(void *arg);

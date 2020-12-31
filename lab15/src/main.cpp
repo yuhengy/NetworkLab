@@ -6,7 +6,7 @@
 #include "ICMPPacketModule.h"
 #include "MOSPFPacketModule.h"
 #include "TCPPacketModule.h"
-#include "TCPSock.h"
+#include "TCPProtocol.h"
 #include "TCPApp.h"
 #include "iface.h"
 #include "endianSwap.h"
@@ -38,7 +38,7 @@ IPPacketModule_c*    IPPacketModule;
 ICMPPacketModule_c*  ICMPPacketModule;
 MOSPFPacketModule_c* MOSPFPacketModule;
 std::vector<TCPPacketModule_c> TCPPacketModuleList;
-TCPSock_c* TCPSock;
+TCPProtocol_c* TCPProtocol;
 TCPApp_c* TCPApp;
 
 
@@ -176,12 +176,12 @@ int main(int argc, const char **argv)
   if (ifaceList.size() != 1) {
     printf("Error: TCP only support 1 iface.\n");
   }
-  TCPSock = new TCPSock_c(*ifaceList.begin());
+  TCPProtocol = new TCPProtocol_c(*ifaceList.begin());
   TCPApp = new TCPApp_c();
 
-  TCPSock->addTCPPacketModule(&(*TCPPacketModuleList.begin()));
-  TCPSock->addTCPApp(TCPApp);
-  TCPApp->addTCPSock(TCPSock);
+  TCPProtocol->addTCPPacketModule(&(*TCPPacketModuleList.begin()));
+  TCPProtocol->addTCPApp(TCPApp);
+  TCPApp->addTCPProtocol(TCPProtocol);
 
   if (strcmp(argv[1], "server") == 0) {
     int temp;

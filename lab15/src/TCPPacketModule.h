@@ -3,7 +3,7 @@
 
 
 class IPPacketModule_c;
-class TCPSock_c;
+class TCPProtocol_c;
 #include "iface.h"
 #include "nat.h"
 #include <stdint.h>
@@ -17,7 +17,7 @@ public:
     IPPacketModule = _IPPacketModule;
   }
   void addNat(nat_c* _nat) { nat = _nat; }
-  void addTCPSock(TCPSock_c* _TCPSock) { TCPSock = _TCPSock; }
+  void addTCPProtocol(TCPProtocol_c* _TCPProtocol) { TCPProtocol = _TCPProtocol; }
 
   bool handlePacket(
     char* TCPPacket, int TCPPacketLen, uint32_t sIP, uint32_t dIP
@@ -25,7 +25,7 @@ public:
   void sendPacket(
     char* upLayerPacket, int upLayerPacketLen,
     uint32_t sIP, uint16_t sPort, uint32_t dIP, uint16_t dPort,
-    uint8_t off=0, uint8_t ttl=0
+    bool forward=true, uint32_t seq=0, uint32_t ack=0, uint8_t flags=0, uint16_t rwnd=0
   );
 
 
@@ -33,7 +33,7 @@ private:
   // configuration
   IPPacketModule_c* IPPacketModule;
   nat_c* nat;
-  TCPSock_c* TCPSock;
+  TCPProtocol_c* TCPProtocol;
 
   // header
   struct __attribute__ ((packed)) TCPHeader_t {
