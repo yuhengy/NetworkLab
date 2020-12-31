@@ -37,7 +37,7 @@ ARPPacketModule_c*   ARPPacketModule;
 IPPacketModule_c*    IPPacketModule;
 ICMPPacketModule_c*  ICMPPacketModule;
 MOSPFPacketModule_c* MOSPFPacketModule;
-std::vector<TCPPacketModule_c> TCPPacketModuleList;
+std::vector<TCPPacketModule_c*> TCPPacketModuleList;
 TCPProtocol_c* TCPProtocol;
 TCPApp_c* TCPApp;
 
@@ -69,7 +69,7 @@ void initIfaceMacIPConfig()
     etherPacketModule->addIface(iface->index, *(ifaceList.end() - 1));
     ARPPacketModule->addIfaceIPToMac(iface->ip, mac);
     IPPacketModule->addIPToIfaceIndexMap(iface->ip, iface->index);
-    TCPPacketModuleList.push_back(TCPPacketModule_c(*(ifaceList.end() - 1)));
+    TCPPacketModuleList.push_back(new TCPPacketModule_c(*(ifaceList.end() - 1)));
 
     if (iface->mask != 0xffffff00) {
       printf("Error: MOSPF does not support mask != 0xffffff00\n");
@@ -157,8 +157,8 @@ int main(int argc, const char **argv)
 #if 0
     nat->addTCPPacketModule(&(*iter));
 #endif
-    IPPacketModule->addTCPPacketModule(&(*iter));
-    iter->addIPPacketModule(IPPacketModule);
+    IPPacketModule->addTCPPacketModule(*iter);
+    (*iter)->addIPPacketModule(IPPacketModule);
 #if 0
     iter->addNat(nat);
 #endif
@@ -176,11 +176,13 @@ int main(int argc, const char **argv)
   if (ifaceList.size() != 1) {
     printf("Error: TCP only support 1 iface.\n");
   }
-  TCPProtocol = new TCPProtocol_c(*ifaceList.begin());
+  TCPProtocol = new TCPProtocol_c(*(ifaceList.begin()));
   TCPApp = new TCPApp_c();
 
-  TCPProtocol->addTCPPacketModule(&(*TCPPacketModuleList.begin()));
+  TCPProtocol->addTCPPacketModule(*TCPPacketModuleList.begin());
   TCPProtocol->addTCPApp(TCPApp);
+  (*TCPPacketModuleList.begin())->addTCPProtocol(TCPProtocol);
+  TCPProtocol->startSubthread();
   TCPApp->addTCPProtocol(TCPProtocol);
 
   if (strcmp(argv[1], "server") == 0) {

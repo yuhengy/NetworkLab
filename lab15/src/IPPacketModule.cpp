@@ -294,8 +294,8 @@ bool IPPacketModule_c::findNormalIPMacIface(
     printf("Error: IPModule unable to send this packet\n");
   }
 
-  printf("routerTable_c::findNextIP: destIP %x; nextIP %x; ifaceIndex %d, ifaceIP %x\n",
-    daddr, nextIP, *ifaceIndex, ifaceIP);
+  //printf("routerTable_c::findNextIP: destIP %x; nextIP %x; ifaceIndex %d, ifaceIP %x\n",
+  //  daddr, nextIP, *ifaceIndex, ifaceIP);
 
   // TODO: a little messy
   if (saddr == 0) {

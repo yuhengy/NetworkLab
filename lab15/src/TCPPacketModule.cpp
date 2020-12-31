@@ -57,7 +57,7 @@ bool TCPPacketModule_c::handlePacket(
 
   TCPProtocol->handlePacket(
     TCPPacket + TCP_HEADER_LEN, TCPPacketLen - TCP_HEADER_LEN,
-    sIP, header.sport,
+    sIP, header.sport, header.dport,
     header.seq, header.ack, header.flags, header.rwnd
   );
   return true;

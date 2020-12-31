@@ -6,6 +6,7 @@
 
 void TCPApp_c::TCPServer(void *arg)
 {
+  sleep(1);
   uint16_t port = *(uint16_t *)arg;
   struct tcp_sock *tsk = TCPProtocol->alloc_tcp_sock();
 
@@ -39,6 +40,7 @@ void TCPApp_c::TCPServer(void *arg)
 
 void TCPApp_c::TCPClient(void *arg)
 {
+  sleep(2);
   struct sock_addr* skaddr = (struct sock_addr* )arg;
 
   struct tcp_sock *tsk = TCPProtocol->alloc_tcp_sock();
