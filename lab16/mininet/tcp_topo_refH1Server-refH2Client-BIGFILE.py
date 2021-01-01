@@ -61,18 +61,19 @@ if __name__ == '__main__':
 
     net.start()
     #CLI(net)
-    h1.cmd('tshark -a duration:30 -w /STEP4-wiresharkOutput-refH1Server.pcapng > result/STEP4-tsharkOutput-refH1Server.log 2>&1 &')
-    h2.cmd('tshark -a duration:30 -w /STEP4-wiresharkOutput-refH2Client.pcapng > result/STEP4-tsharkOutput-refH2Client.log 2>&1 &')
+    h1.cmd('tshark -a duration:30 -w /STEP8-wiresharkOutput-refH1Server.pcapng > result/STEP8-tsharkOutput-refH1Server.log 2>&1 &')
+    h2.cmd('tshark -a duration:30 -w /STEP8-wiresharkOutput-refH2Client.pcapng > result/STEP8-tsharkOutput-refH2Client.log 2>&1 &')
     time.sleep(20)
 
-    h1.cmd("python build/tcp_stack.py server 10001 > result/STEP4-refH1Server.txt 2>&1 &")
-    #h1.cmd("stdbuf -oL -eL ./build/tcp_stack server 10001 > result/STEP4-myH1Server.txt 2>&1 &")
+    h1.cmd("python build/tcp_stack-BIGFILE.py server 10001 > result/STEP8-refH1Server.txt 2>&1 &")
+    #h1.cmd("stdbuf -oL -eL ./build/tcp_stack server 10001 > result/STEP8-refH1Server.txt 2>&1 &")
     time.sleep(1)
-    h2.cmd("python build/tcp_stack.py client 10.0.0.1 10001 > result/STEP4-refH2Client.txt 2>&1 &")
-    #h2.cmd("stdbuf -oL -eL ./build/tcp_stack client 0x0a000001 10001 > result/STEP4-myH2Client.txt 2>&1 &")
+    h2.cmd("python build/tcp_stack-BIGFILE.py client 10.0.0.1 10001 > result/STEP8-refH2Client.txt 2>&1 &")
+    #h2.cmd("stdbuf -oL -eL ./build/tcp_stack client 0x0a000001 10001 > result/STEP8-refH2Client.txt 2>&1 &")
     time.sleep(39)
 
-    h1.cmd('mv /STEP4-wiresharkOutput-refH1Server.pcapng result/')
-    h2.cmd('mv /STEP4-wiresharkOutput-refH2Client.pcapng result/')
+    h1.cmd('mv /STEP8-wiresharkOutput-refH1Server.pcapng result/')
+    h2.cmd('mv /STEP8-wiresharkOutput-refH2Client.pcapng result/')
+    h2.cmd('diff mininet/client-input.dat mininet/server-output.dat > result/STEP8-diff.txt 2>&1')
 
     net.stop()

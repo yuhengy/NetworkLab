@@ -52,27 +52,28 @@ if __name__ == '__main__':
 
     h1.cmd('scripts/disable_ipv6.sh')
     h2.cmd('scripts/disable_ipv6.sh')
-    #h1.cmd('scripts/disable_offloading.sh && scripts/disable_tcp_rst.sh')
+    h1.cmd('scripts/disable_offloading.sh && scripts/disable_tcp_rst.sh')
     #h2.cmd('scripts/disable_offloading.sh && scripts/disable_tcp_rst.sh')
     # XXX: If you want to run user-level stack, you should execute 
     # disable_[arp,icmp,ip_forward].sh first. 
-    #h1.cmd('./scripts/disable_arp.sh && ./scripts/disable_icmp.sh && ./scripts/disable_ip_forward.sh')
+    h1.cmd('./scripts/disable_arp.sh && ./scripts/disable_icmp.sh && ./scripts/disable_ip_forward.sh')
     #h2.cmd('./scripts/disable_arp.sh && ./scripts/disable_icmp.sh && ./scripts/disable_ip_forward.sh')
 
     net.start()
     #CLI(net)
-    h1.cmd('tshark -a duration:30 -w /STEP4-wiresharkOutput-refH1Server.pcapng > result/STEP4-tsharkOutput-refH1Server.log 2>&1 &')
-    h2.cmd('tshark -a duration:30 -w /STEP4-wiresharkOutput-refH2Client.pcapng > result/STEP4-tsharkOutput-refH2Client.log 2>&1 &')
+    h1.cmd('tshark -a duration:30 -w /STEP6-wiresharkOutput-myH1Server.pcapng > result/STEP6-tsharkOutput-myH1Server.log 2>&1 &')
+    h2.cmd('tshark -a duration:30 -w /STEP6-wiresharkOutput-refH2Client.pcapng > result/STEP6-tsharkOutput-refH2Client.log 2>&1 &')
     time.sleep(20)
 
-    h1.cmd("python build/tcp_stack.py server 10001 > result/STEP4-refH1Server.txt 2>&1 &")
-    #h1.cmd("stdbuf -oL -eL ./build/tcp_stack server 10001 > result/STEP4-myH1Server.txt 2>&1 &")
+    #h1.cmd("python build/tcp_stack-BIGFILE.py server 10001 > result/STEP6-refH1Server.txt 2>&1 &")
+    h1.cmd("stdbuf -oL -eL ./build/tcp_stack server 10001 > result/STEP6-myH1Server.txt 2>&1 &")
     time.sleep(1)
-    h2.cmd("python build/tcp_stack.py client 10.0.0.1 10001 > result/STEP4-refH2Client.txt 2>&1 &")
-    #h2.cmd("stdbuf -oL -eL ./build/tcp_stack client 0x0a000001 10001 > result/STEP4-myH2Client.txt 2>&1 &")
+    h2.cmd("python build/tcp_stack-BIGFILE.py client 10.0.0.1 10001 > result/STEP6-refH2Client.txt 2>&1 &")
+    #h2.cmd("stdbuf -oL -eL ./build/tcp_stack client 0x0a000001 10001 > result/STEP6-myH2Client.txt 2>&1 &")
     time.sleep(39)
 
-    h1.cmd('mv /STEP4-wiresharkOutput-refH1Server.pcapng result/')
-    h2.cmd('mv /STEP4-wiresharkOutput-refH2Client.pcapng result/')
+    h1.cmd('mv /STEP6-wiresharkOutput-myH1Server.pcapng result/')
+    h2.cmd('mv /STEP6-wiresharkOutput-refH2Client.pcapng result/')
+    h2.cmd('diff mininet/client-input.dat mininet/server-output.dat > result/STEP6-diff.txt 2>&1')
 
     net.stop()

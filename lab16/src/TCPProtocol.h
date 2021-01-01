@@ -22,28 +22,28 @@ static bool operator< (sock_addr lhs, sock_addr rhs) {
 
 class ringBuffer_t {
 public:
-  int size;
-  int head;   // read from head, for application
-  int tail;   // write from tail, i.e. start of recv window
+  uint32_t size;
+  uint32_t head;   // read from head, for application
+  uint32_t tail;   // write from tail, i.e. start of recv window
   char* buf;
   bool* filled;
 
   // set the buf, dest/source, filled
   // but not change head, tail
-  void readFromBuffer(char* dest, int sourceIndex, int len) {
+  void readFromBuffer(char* dest, uint32_t sourceIndex, int len) {
     assert(len < size);
     sourceIndex = sourceIndex % size;
     for (int i = 0; i < len; i++, sourceIndex++, dest++) {
-      if (sourceIndex > size) sourceIndex -= size;
+      if (sourceIndex == size) sourceIndex = 0;
       *dest = buf[sourceIndex];
       filled[sourceIndex] = false;
     }
   }
-  void writeToBuffer(int destIndex, char* source, int len) {
+  void writeToBuffer(uint32_t destIndex, char* source, int len) {
     assert(len < size);
     destIndex = destIndex % size;
     for (int i = 0; i < len; i++, source++, destIndex++) {
-      if (destIndex > size) destIndex -= size;
+      if (destIndex == size) destIndex = 0;
       buf[destIndex] = *source;
       filled[destIndex] = true;
     }

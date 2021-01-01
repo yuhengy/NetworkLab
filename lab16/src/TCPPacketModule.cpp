@@ -34,10 +34,6 @@ bool TCPPacketModule_c::handlePacket(
   //endianSwap((uint8_t*)&(header.checksum), 2);
   endianSwap((uint8_t*)&(header.urp)  , 2);
 
-  if (header.off != 5) {
-    printf("Error: TCP not support vary head length.\n");
-  }
-
 #if 0
   printf("******************************************************\n");
   printf("*********TCPPacketModule_c::handlePacket start********\n");
@@ -57,7 +53,7 @@ bool TCPPacketModule_c::handlePacket(
 #endif
 
   TCPProtocol->handlePacket(
-    TCPPacket + TCP_HEADER_LEN, TCPPacketLen - TCP_HEADER_LEN,
+    TCPPacket + TCP_HEADER_LEN + (header.off - 5) * 4, TCPPacketLen - TCP_HEADER_LEN -  (header.off - 5) * 4,
     sIP, header.sport, header.dport,
     header.seq, header.ack, header.flags, header.rwnd
   );

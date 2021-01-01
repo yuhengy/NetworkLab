@@ -49,7 +49,7 @@ void IPPacketModule_c::addRouterTable(routerTable_c* _routerTable)
 
 void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen, uint32_t ifaceIP)
 {
-  header = *((struct IPHeader_t *)IPPacket);
+  IPHeader_t header = *((struct IPHeader_t *)IPPacket);
   endianSwap((uint8_t*)&(header.tot_len) , 2);
   endianSwap((uint8_t*)&(header.id)      , 2);
   endianSwap((uint8_t*)&(header.frag_off), 2);
@@ -62,7 +62,7 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen, uint32_t if
   printf("******************************************************\n");
   printf("******IPPacketModule_c::handleCurrentPacket start*****\n");
   printf("******************************************************\n");
-  debug_printCurrentPacketHeader();
+  debug_printCurrentPacketHeader(header);
   printf("****************************************************\n");
   printf("******IPPacketModule_c::handleCurrentPacket end*****\n");
   printf("****************************************************\n");
@@ -130,7 +130,7 @@ void IPPacketModule_c::handlePacket(char* IPPacket, int IPPacketLen, uint32_t if
   }
   
   else if (routerTable->hasNextIP(header.daddr)) {
-    handleForward(IPPacket, IPPacketLen);
+    handleForward(IPPacket, IPPacketLen, header);
   }
   
   else {
@@ -173,6 +173,7 @@ void IPPacketModule_c::sendPacket(
 {
   char* packet     = upLayerPacket    - ihl * 4;
   int packetLen  = upLayerPacketLen + ihl * 4;
+  IPHeader_t header;
 
   // TODO: use a new struct to fill
   header.version  = 0x4;
@@ -202,13 +203,14 @@ void IPPacketModule_c::sendPacket(
   uint64_t targetMac;
 
   if (daddr == NEIGHBOUR_BROARDCAST_IP) {
-  findNeighbourBroadcastIPMacIface(saddr, &ifaceIndex, &targetMac);
+  findNeighbourBroadcastIPMacIface(saddr, &ifaceIndex, &targetMac, &header);
   }
   else {
     bool succeed = findNormalIPMacIface(
       ttl, protocol, saddr, daddr, ihl,
       upLayerPacket, upLayerPacketLen,
-      &ifaceIndex, &targetMac  // this two output
+      &ifaceIndex, &targetMac,  // this two output
+      &header
     );
     if (!succeed) return;
   }
@@ -232,7 +234,7 @@ void IPPacketModule_c::sendPacket(
   printf("******************************************************\n");
   printf("**********IPPacketModule_c::sendPacket start**********\n");
   printf("******************************************************\n");
-  debug_printCurrentPacketHeader();
+  debug_printCurrentPacketHeader(header);
   printf("****************************************************\n");
   printf("**********IPPacketModule_c::sendPacket end**********\n");
   printf("****************************************************\n");
@@ -248,7 +250,7 @@ void IPPacketModule_c::sendPacket(
 
 //--------------------------------------------------------------------
 
-void IPPacketModule_c::handleForward(char* IPPacket, int IPPacketLen)
+void IPPacketModule_c::handleForward(char* IPPacket, int IPPacketLen, IPHeader_t header)
 {
   sendPacket(
     header.ttl - 1, header.protocol, header.saddr, header.daddr, header.ihl,
@@ -261,7 +263,8 @@ void IPPacketModule_c::handleForward(char* IPPacket, int IPPacketLen)
 void IPPacketModule_c::handleARPCacheMiss(
   uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
   char* upLayerPacket, int upLayerPacketLen,
-  uint32_t nextIP, int ifaceIndex
+  uint32_t nextIP, int ifaceIndex,
+  IPHeader_t header
 )
 {
   char* packet = (char*)malloc(ETHER_HEADER_LEN + ARP_HEADER_LEN);
@@ -283,7 +286,8 @@ void IPPacketModule_c::handleARPCacheMiss(
 bool IPPacketModule_c::findNormalIPMacIface(
   uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
   char* upLayerPacket, int upLayerPacketLen,
-  int* ifaceIndex, uint64_t* targetMac  // this two output
+  int* ifaceIndex, uint64_t* targetMac,  // this two output
+  IPHeader_t* header
 )
 {
   // STEP1 ask routerTable
@@ -299,17 +303,18 @@ bool IPPacketModule_c::findNormalIPMacIface(
 
   // TODO: a little messy
   if (saddr == 0) {
-    header.saddr = ifaceIP;
+    header->saddr = ifaceIP;
   }
   else {
-    header.saddr = saddr;
+    header->saddr = saddr;
   }
 
   // STEP2 ask arpCache
   if (!ARPCache.findMac(nextIP, targetMac)) {
     handleARPCacheMiss(
       ttl, protocol, saddr, daddr, ihl, upLayerPacket, upLayerPacketLen,
-      nextIP, *ifaceIndex
+      nextIP, *ifaceIndex,
+      *header
     );
     return false;
   }
@@ -319,10 +324,10 @@ bool IPPacketModule_c::findNormalIPMacIface(
 
 
 void IPPacketModule_c::findNeighbourBroadcastIPMacIface(
-  uint32_t saddr, int* ifaceIndex, uint64_t* targetMac
+  uint32_t saddr, int* ifaceIndex, uint64_t* targetMac, IPHeader_t* header
 )
 {
-  header.saddr = saddr;
+  header->saddr = saddr;
   std::map<uint32_t, int>::iterator iter = IPToIfaceIndexMap.find(saddr);
   if (iter == IPToIfaceIndexMap.end()) {
     printf("Error: IP is asked to broadcast from unknow source IP\n");
@@ -351,7 +356,7 @@ void IPPacketModule_c::sweepARPMissPendingBuff()
 
 //--------------------------------------------------------------------
 
-void IPPacketModule_c::debug_printCurrentPacketHeader()
+void IPPacketModule_c::debug_printCurrentPacketHeader(IPHeader_t header)
 {
   printf("---------------IP Packet start---------------\n");
   printf("version:  0x%01x\n", header.version);

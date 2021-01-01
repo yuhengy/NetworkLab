@@ -33,21 +33,6 @@ public:
     char* upLayerPacket, int upLayerPacketLen
   );
 
-  void sweepARPMissPendingBuff();
-
-  void debug_printCurrentPacketHeader();
-  void debug_printIPToIfaceIndexMap();
-
-
-private:
-  // configuration
-  std::map<uint32_t, int> IPToIfaceIndexMap;
-  etherPacketModule_c* etherPacketModule;
-  ARPPacketModule_c* ARPPacketModule;
-  ICMPPacketModule_c* ICMPPacketModule;
-  MOSPFPacketModule_c* MOSPFPacketModule;
-  std::vector<TCPPacketModule_c*> TCPPacketModuleList;
-
   // header
   struct __attribute__ ((packed)) IPHeader_t {  //TODO header length can change
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -66,7 +51,22 @@ private:
     uint16_t checksum;
     uint32_t saddr;
     uint32_t daddr;
-  } header;
+  };
+
+  void sweepARPMissPendingBuff();
+
+  void debug_printCurrentPacketHeader(IPHeader_t header);
+  void debug_printIPToIfaceIndexMap();
+
+
+private:
+  // configuration
+  std::map<uint32_t, int> IPToIfaceIndexMap;
+  etherPacketModule_c* etherPacketModule;
+  ARPPacketModule_c* ARPPacketModule;
+  ICMPPacketModule_c* ICMPPacketModule;
+  MOSPFPacketModule_c* MOSPFPacketModule;
+  std::vector<TCPPacketModule_c*> TCPPacketModuleList;
 
   // sub modules
   routerTable_c* routerTable;
@@ -77,21 +77,23 @@ private:
 
 
   // handle packet in this layer
-  void handleForward(char* IPPacket, int IPPacketLen);
+  void handleForward(char* IPPacket, int IPPacketLen, IPHeader_t header);
   void handleARPCacheMiss(
     uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
     char* upLayerPacket, int upLayerPacketLen,
-    uint32_t nextIP, int ifaceIndex
+    uint32_t nextIP, int ifaceIndex,
+    IPHeader_t header
   );
 
   // different methods to send packet
   bool findNormalIPMacIface(
     uint8_t ttl, uint8_t protocol, uint32_t saddr, uint32_t daddr, uint8_t ihl,
     char* upLayerPacket, int upLayerPacketLen,
-    int* ifaceIndex, uint64_t* targetMac  // this two output
+    int* ifaceIndex, uint64_t* targetMac,  // this two output
+    IPHeader_t* header
   );
   void findNeighbourBroadcastIPMacIface(
-    uint32_t saddr, int* ifaceIndex, uint64_t* targetMac
+    uint32_t saddr, int* ifaceIndex, uint64_t* targetMac, IPHeader_t* header
   );
 
 

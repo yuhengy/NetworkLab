@@ -13,7 +13,7 @@
 # define TCP_URG  0x20
 
 # define RWND RINGBUFFER_SIZE
-# define RINGBUFFER_SIZE (1024)
+# define RINGBUFFER_SIZE (1024 * 16)
 # define MAX_DATA_SIZE (1514 - (ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN + TCP_HEADER_LEN))
 
 #define TCP_MSL 100
@@ -130,7 +130,7 @@ struct tcp_sock* TCPProtocol_c::alloc_tcp_sock()
   TCPSock->ringBuffer.tail = 0;
   TCPSock->ringBuffer.buf = new char[TCPSock->ringBuffer.size];
   TCPSock->ringBuffer.filled = new bool[TCPSock->ringBuffer.size];
-  memset(TCPSock->ringBuffer.filled, 0, TCPSock->ringBuffer.size);
+  memset(TCPSock->ringBuffer.filled, 0, TCPSock->ringBuffer.size * sizeof(bool));
   return TCPSock;
 }
 
@@ -234,16 +234,19 @@ void TCPProtocol_c::tcp_sock_close(struct tcp_sock *TCPSock)
 
   // one example is the parent TCP of server listening
   else if (TCPSock->TCPState == TCP_LISTEN) {
+    printf("Close a TCP, it is listening.\n");
     listenTable.erase(TCPSock->localAddr);
   }
 
   // usual case, closed by other side
   else if (TCPSock->TCPState == TCP_CLOSED) {
+    printf("Close a TCP, but it already closed by other side.\n");
     establishedTable.erase(std::make_pair(TCPSock->localAddr, TCPSock->peerAddr));
   }
 
   // usual case, closed by this side
   else if (TCPSock->TCPState == TCP_ESTABLISHED) {
+    printf("Close a TCP, closed by this side.\n");
     char *emptyPacket = (char*)malloc(
       ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN + TCP_HEADER_LEN
     );
@@ -251,7 +254,7 @@ void TCPProtocol_c::tcp_sock_close(struct tcp_sock *TCPSock)
     TCPPacketModule->sendPacket(
       emptyPacket, 0,
       TCPSock->localAddr.IP, TCPSock->localAddr.port, TCPSock->peerAddr.IP, TCPSock->peerAddr.port,
-      false, (TCPSock->snd_nxt)++, TCPSock->rcv_nxt, TCP_FIN, RWND
+      false, (TCPSock->snd_nxt)++, TCPSock->rcv_nxt, TCP_FIN | TCP_ACK, RWND
     );
     TCPSock->TCPState = TCP_FIN_WAIT_1;
     TCPSockTable_mutex.unlock();
@@ -268,7 +271,10 @@ void TCPProtocol_c::tcp_sock_close(struct tcp_sock *TCPSock)
 
 int TCPProtocol_c::tcp_sock_read(struct tcp_sock* TCPSock, char* buff, int len)
 {
-  while (TCPSock->ringBuffer.tail - TCPSock->ringBuffer.head == 0) ;
+  while (TCPSock->ringBuffer.tail - TCPSock->ringBuffer.head == 0) {
+    usleep(100);
+    if (TCPSock->TCPState == TCP_CLOSED) return 0;
+  }
 
   TCPSockTable_mutex.lock();
 
@@ -288,6 +294,17 @@ int TCPProtocol_c::tcp_sock_read(struct tcp_sock* TCPSock, char* buff, int len)
 
   TCPSockTable_mutex.unlock();
 
+  // update window size
+  char *emptyPacket = (char*)malloc(
+    ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN + TCP_HEADER_LEN
+  );
+  emptyPacket += ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN + TCP_HEADER_LEN;
+  TCPPacketModule->sendPacket(
+    emptyPacket, 0,
+    TCPSock->localAddr.IP, TCPSock->localAddr.port, TCPSock->peerAddr.IP, TCPSock->peerAddr.port,
+    false, TCPSock->snd_nxt, TCPSock->rcv_nxt, TCP_ACK, RWND - (TCPSock->ringBuffer.tail - TCPSock->ringBuffer.head)
+  );
+
   return readLen;
 }
 
@@ -306,6 +323,7 @@ int TCPProtocol_c::tcp_sock_write(struct tcp_sock* TCPSock, char* buff, int len)
     printf("**********TCPProtocol_c::tcp_sock_write end*********\n");
     printf("****************************************************\n");
 #endif
+  int debugCounter = 0;
 
   while (true) {
     // decide the size
@@ -340,7 +358,7 @@ int TCPProtocol_c::tcp_sock_write(struct tcp_sock* TCPSock, char* buff, int len)
 
     // update log
     TCPSock->snd_nxt += sendSize;
-
+    buff += sendSize;
     TCPSockTable_mutex.unlock();
   }
 
@@ -478,12 +496,24 @@ void TCPProtocol_c::handleSaveData(
 
   // update log
   TCPSock->snd_una = ack;
-  assert(TCPSock->ringBuffer.tail == TCPSock->rcv_nxt);
-  while (TCPSock->ringBuffer.buf[TCPSock->ringBuffer.tail % TCPSock->ringBuffer.size]) {
+  while (TCPSock->ringBuffer.filled[TCPSock->ringBuffer.tail % TCPSock->ringBuffer.size]) {
     TCPSock->ringBuffer.tail++;
     TCPSock->rcv_nxt++;
   }
   TCPSock->rcv_wnd = rwnd;
+
+  // replay
+  if (TCPProtocolPacketLen != 0) {
+    char *emptyPacket = (char*)malloc(
+      ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN + TCP_HEADER_LEN
+    );
+    emptyPacket += ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN + TCP_HEADER_LEN;
+    TCPPacketModule->sendPacket(
+      emptyPacket, 0,
+      TCPSock->localAddr.IP, TCPSock->localAddr.port, TCPSock->peerAddr.IP, TCPSock->peerAddr.port,
+      false, TCPSock->snd_nxt, TCPSock->rcv_nxt, TCP_ACK, RWND - (TCPSock->ringBuffer.tail - TCPSock->ringBuffer.head)
+    );
+  }
 }
 
 
@@ -495,11 +525,11 @@ void TCPProtocol_c::debug_printTCPSock(tcp_sock* TCPSock)
   printf("peerAddr:           0x%08x:0x%04x\n", TCPSock->peerAddr.IP, TCPSock->peerAddr.port);
   printf("synRcvdList.size(): %lu\n", TCPSock->synRcvdList.size());
   printf("acceptList.size():  %lu\n", TCPSock->acceptList.size());
-  printf("ringBuffer:         head %d; tail %d\n", TCPSock->ringBuffer.head, TCPSock->ringBuffer.tail);
-  printf("snd_una:            %d\n", TCPSock->snd_una);
-  printf("snd_nxt:            %d\n", TCPSock->snd_nxt);
-  printf("rcv_nxt:            %d\n", TCPSock->rcv_nxt);
-  printf("rcv_wnd:            %d\n", TCPSock->rcv_wnd);
+  printf("ringBuffer:         head 0x%08x; tail 0x%08x\n", TCPSock->ringBuffer.head, TCPSock->ringBuffer.tail);
+  printf("snd_una:            0x%08x\n", TCPSock->snd_una);
+  printf("snd_nxt:            0x%08x\n", TCPSock->snd_nxt);
+  printf("rcv_nxt:            0x%08x\n", TCPSock->rcv_nxt);
+  printf("rcv_wnd:            0x%08x\n", TCPSock->rcv_wnd);
   printf("^^^^^^^^^^^^^^^TCPSock end^^^^^^^^^^^^^^^\n");
 }
 

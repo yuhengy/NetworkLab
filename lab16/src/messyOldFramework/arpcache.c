@@ -94,7 +94,7 @@ void *arpcache_sweep(void *arg)
 	while (1) {
 		sleep(1);
 		//fprintf(stderr, "TODO: sweep arpcache periodically: remove old entries, resend arp requests .\n");
-		IPPacketModule->sweepARPMissPendingBuff();
+		//IPPacketModule->sweepARPMissPendingBuff();
 	}
 
 	return NULL;
