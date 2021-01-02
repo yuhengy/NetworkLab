@@ -295,7 +295,7 @@ bool IPPacketModule_c::findNormalIPMacIface(
   uint32_t ifaceIP;
 
   if (!routerTable->findNextIP(daddr, &nextIP, ifaceIndex, &ifaceIP)) {
-    printf("Error: IPModule unable to send this packet\n");
+    printf("Error: IPModule unable to send this packet, wrong IP 0x%08x\n", daddr);
   }
 
   //printf("routerTable_c::findNextIP: destIP %x; nextIP %x; ifaceIndex %d, ifaceIP %x\n",

@@ -3,9 +3,11 @@
 
 class TCPPacketModule_c;
 class TCPApp_c;
+#include "common.h"
 #include "iface.h"
 #include <stdint.h>
 #include <assert.h>
+#include <list>
 #include <map>
 #include <thread>
 #include <mutex>
@@ -50,6 +52,27 @@ public:
   }
 };
 
+struct tcp_sock;
+class TCPPacketInfo_c {
+public:
+  char*    logPacket;
+  int      logPacketLen;
+  uint32_t logSeq;
+  uint8_t  logFlags;
+
+  int resendTime = 0;
+
+  void sendAndLogPacket(
+    tcp_sock* TCPSock, TCPPacketModule_c* TCPPacketModule,
+    char* packet, int packetLen, uint8_t flags
+  );
+  void resend(tcp_sock* TCPSock, TCPPacketModule_c* TCPPacketModule);
+  void freeLogPacket() {
+    free(logPacket - (ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN + TCP_HEADER_LEN));
+  }
+
+};
+
 // tcp states
 enum TCPState_c {
   TCP_CLOSED, TCP_LISTEN, TCP_SYN_RECV, TCP_SYN_SENT,
@@ -77,8 +100,10 @@ struct tcp_sock {
 
   uint8_t  timeWait;
 
-
-
+  bool      timingOpen;
+  uint32_t  ACKTimeOut;  // in ms
+  uint32_t  ACKPendingTime;  // in ms
+  std::list<TCPPacketInfo_c> sendBuffer;
 };
 
 
@@ -95,6 +120,7 @@ public:
     uint32_t sIP, uint16_t sPort, uint16_t dPort,
     uint32_t seq, uint32_t ack, uint8_t flags, uint16_t rwnd
   );
+  void handlePacket_handleACK(tcp_sock* TCPSock, uint32_t ack);
 
   // Application Interface
   struct tcp_sock* alloc_tcp_sock();
@@ -117,11 +143,13 @@ private:
 
   // sub threads
   void timeWaitThread();
-  std::thread timeWait;
+  void ACKTimeOutThread();
+  void ACKTimeOutThread_handleTImeOut(tcp_sock* TCPSock);
+  std::thread timeWait, ACKTimeOut;
 
   // All current TCP link
   std::map<sock_addr, tcp_sock*> listenTable;
-  std::map<std::pair<sock_addr, sock_addr>, struct tcp_sock*> establishedTable;
+  std::map<std::pair<sock_addr, sock_addr>, tcp_sock*> establishedTable;
   std::mutex TCPSockTable_mutex;
 
   // client port

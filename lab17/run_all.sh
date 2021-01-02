@@ -2,7 +2,7 @@
 set -v
 
 mkdir -p result
-#rm -f result/*
+rm -f result/*
 
 make
 
