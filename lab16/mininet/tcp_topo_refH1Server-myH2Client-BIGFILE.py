@@ -74,6 +74,6 @@ if __name__ == '__main__':
 
     h1.cmd('mv /STEP7-wiresharkOutput-refH1Server.pcapng result/')
     h2.cmd('mv /STEP7-wiresharkOutput-myH2Client.pcapng result/')
-    h2.cmd('diff mininet/client-input.dat mininet/server-output.dat > result/STEP6-diff.txt 2>&1')
+    h2.cmd('diff mininet/client-input.dat mininet/server-output.dat > result/STEP7-diff.txt 2>&1')
 
     net.stop()
