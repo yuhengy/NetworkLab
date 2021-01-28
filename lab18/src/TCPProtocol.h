@@ -5,6 +5,7 @@ class TCPPacketModule_c;
 class TCPApp_c;
 #include "common.h"
 #include "iface.h"
+#include "congestionControl.h"
 #include <stdint.h>
 #include <assert.h>
 #include <list>
@@ -104,6 +105,8 @@ struct tcp_sock {
   uint32_t  ACKTimeOut;  // in ms
   uint32_t  ACKPendingTime;  // in ms
   std::list<TCPPacketInfo_c> sendBuffer;
+
+  congestionControl_c congestionControl;
 };
 
 

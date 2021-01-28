@@ -3,6 +3,7 @@
 #include "TCPPacketModule.h"
 #include <unistd.h>
 #include <string.h>
+#include <algorithm>
 
 # define TCP_FIN  0x01
 # define TCP_SYN  0x02
@@ -11,10 +12,10 @@
 # define TCP_ACK  0x10
 # define TCP_URG  0x20
 
-#define RINGBUFFER_SIZE (1024 * 16)
+#define RINGBUFFER_SIZE (1024 * 127)
 #define MAX_DATA_SIZE (1514 - (ETHER_HEADER_LEN + DEFAULTIP_HEADER_LEN + TCP_HEADER_LEN))
 #define TCP_MSL 100
-#define ACK_TIME_OUT_BASE 200 // 200ms
+#define ACK_TIME_OUT_BASE 8 // 8ms
 
 //--------------------------------------------------------------------
 
@@ -62,7 +63,7 @@ void TCPPacketInfo_c::sendAndLogPacket(
 void TCPPacketInfo_c::resend(tcp_sock* TCPSock, TCPPacketModule_c* TCPPacketModule)
 {
   resendTime++;
-  if (resendTime > 5) {
+  if (resendTime > 3 && !(logFlags & TCP_FIN) && (logPacketLen != 0)) {
     printf("Error: TCP resend over 3 times.\n");
     assert(false);
   }
@@ -132,6 +133,7 @@ void TCPProtocol_c::ACKTimeOutThread_handleTImeOut(tcp_sock* TCPSock)
 {
   TCPSock->ACKPendingTime = 0;
   TCPSock->ACKTimeOut *= 2;
+  TCPSock->congestionControl.RTO();
 
   assert(TCPSock->sendBuffer.size() != 0);
   TCPSock->sendBuffer.begin()->resend(TCPSock, TCPPacketModule);
@@ -218,6 +220,15 @@ void TCPProtocol_c::handlePacket(
 // TODO: can have bug when have multiple childred
 void TCPProtocol_c::handlePacket_handleACK(tcp_sock* TCPSock, uint32_t ack)
 {
+  bool needRetrans;
+  if (ack == TCPSock->snd_una) {
+    needRetrans = TCPSock->congestionControl.dupack(ack);
+  }
+  else {
+    needRetrans = TCPSock->congestionControl.successTransfer(ack);
+  }
+  TCPSock->congestionControl.checkRecovery(ack);
+
   while(true) {
     auto iter = TCPSock->sendBuffer.begin();
     if      (iter == TCPSock->sendBuffer.end()) {assert(TCPSock->timingOpen == false); break;}
@@ -232,6 +243,11 @@ void TCPProtocol_c::handlePacket_handleACK(tcp_sock* TCPSock, uint32_t ack)
       TCPSock->ACKTimeOut = ACK_TIME_OUT_BASE;
       if (TCPSock->sendBuffer.size() == 0) TCPSock->timingOpen = false;
     }
+  }
+
+  if (needRetrans && TCPSock->timingOpen && TCPSock->TCPState==TCP_ESTABLISHED) {
+    printf("Fast Resend!!!\n");
+    TCPSock->sendBuffer.begin()->resend(TCPSock, TCPPacketModule);
   }
 
 
@@ -429,6 +445,7 @@ int TCPProtocol_c::tcp_sock_write(struct tcp_sock* TCPSock, char* buff, int len)
 #endif
   int debugCounter = 0;
 
+  TCPSock->congestionControl.startWriteToCwndLog();
   while (true) {
     // decide the size
     TCPSockTable_mutex.lock();
@@ -436,11 +453,11 @@ int TCPProtocol_c::tcp_sock_write(struct tcp_sock* TCPSock, char* buff, int len)
       TCPSockTable_mutex.unlock(); break;
     }
     else if (MAX_DATA_SIZE < (MAXSend - TCPSock->snd_nxt) &&
-             MAX_DATA_SIZE <= TCPSock->rcv_wnd - (TCPSock->snd_nxt - TCPSock->snd_una)) { // check -+ 1
+             MAX_DATA_SIZE <= (int64_t)std::min(TCPSock->rcv_wnd, (uint16_t)(MAX_DATA_SIZE*TCPSock->congestionControl.getCwnd())) - (int64_t)(TCPSock->snd_nxt - TCPSock->snd_una)) { // check -+ 1
       sendSize = MAX_DATA_SIZE;
-    }
+    } 
     else if ((MAXSend - TCPSock->snd_nxt) <= MAX_DATA_SIZE &&
-             (MAXSend - TCPSock->snd_nxt) <= TCPSock->rcv_wnd - (TCPSock->snd_nxt - TCPSock->snd_una)) {
+             (MAXSend - TCPSock->snd_nxt) <= (int64_t)std::min(TCPSock->rcv_wnd, (uint16_t)(MAX_DATA_SIZE*TCPSock->congestionControl.getCwnd())) - (int64_t)(TCPSock->snd_nxt - TCPSock->snd_una)) {
       sendSize = MAXSend - TCPSock->snd_nxt;
     }
     else {
@@ -458,6 +475,7 @@ int TCPProtocol_c::tcp_sock_write(struct tcp_sock* TCPSock, char* buff, int len)
     buff += sendSize;
     TCPSockTable_mutex.unlock();
   }
+  TCPSock->congestionControl.dumpCwndLog();
 
   return len;
 }
