@@ -47,7 +47,7 @@ if __name__ == '__main__':
     #CLI(net)
     h1.cmd('tshark -a duration:30 -w /STEP1-wiresharkOutput-myH1Server.pcapng > result/STEP1-tsharkOutput-myH1Server.log 2>&1 &')
     h2.cmd('tshark -a duration:30 -w /STEP1-wiresharkOutput-myH2Client.pcapng > result/STEP1-tsharkOutput-myH2Client.log 2>&1 &')
-    time.sleep(2)
+    time.sleep(20)
 
     #h1.cmd("python build/tcp_stack-BIGFILE.py server 10001 > result/STEP1-refH1Server.txt 2>&1 &")
     h1.cmd("stdbuf -oL -eL ./build/tcp_stack server 10001 > result/STEP1-myH1Server.txt 2>&1 &")
